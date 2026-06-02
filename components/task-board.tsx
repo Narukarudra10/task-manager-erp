@@ -1,0 +1,229 @@
+"use client"
+
+import { useState, useTransition } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { 
+  MoreHorizontal, 
+  Trash2, 
+  ArrowRight, 
+  ArrowLeft,
+  Circle,
+  Clock,
+  CheckCircle2
+} from "lucide-react"
+import { type Task } from "@/lib/db/schema"
+import { updateTaskStatus, deleteTask } from "@/app/actions/tasks"
+
+interface TaskBoardProps {
+  initialTasks: Task[]
+}
+
+const statusConfig = {
+  todo: { 
+    label: "To Do", 
+    icon: Circle,
+    color: "bg-muted/50 border-muted-foreground/20"
+  },
+  in_progress: { 
+    label: "In Progress", 
+    icon: Clock,
+    color: "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800"
+  },
+  done: { 
+    label: "Done", 
+    icon: CheckCircle2,
+    color: "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800"
+  },
+}
+
+const priorityColors = {
+  low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  medium: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+  high: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+}
+
+function TaskCard({ 
+  task, 
+  onStatusChange, 
+  onDelete 
+}: { 
+  task: Task
+  onStatusChange: (id: number, status: string) => void
+  onDelete: (id: number) => void
+}) {
+  const [isPending, startTransition] = useTransition()
+
+  const getNextStatus = () => {
+    if (task.status === "todo") return "in_progress"
+    if (task.status === "in_progress") return "done"
+    return null
+  }
+
+  const getPrevStatus = () => {
+    if (task.status === "done") return "in_progress"
+    if (task.status === "in_progress") return "todo"
+    return null
+  }
+
+  const nextStatus = getNextStatus()
+  const prevStatus = getPrevStatus()
+
+  return (
+    <Card className={`transition-all hover:shadow-md ${isPending ? "opacity-50" : ""}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-sm truncate">{task.title}</h4>
+            {task.description && (
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {task.description}
+              </p>
+            )}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {prevStatus && (
+                <DropdownMenuItem
+                  onClick={() => startTransition(() => onStatusChange(task.id, prevStatus))}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Move to {statusConfig[prevStatus as keyof typeof statusConfig].label}
+                </DropdownMenuItem>
+              )}
+              {nextStatus && (
+                <DropdownMenuItem
+                  onClick={() => startTransition(() => onStatusChange(task.id, nextStatus))}
+                >
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Move to {statusConfig[nextStatus as keyof typeof statusConfig].label}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => startTransition(() => onDelete(task.id))}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="flex items-center gap-2 mt-3">
+          <Badge 
+            variant="secondary" 
+            className={`text-xs ${priorityColors[task.priority as keyof typeof priorityColors] || priorityColors.medium}`}
+          >
+            {task.priority}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {new Date(task.createdAt).toLocaleDateString()}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function TaskColumn({ 
+  status, 
+  tasks, 
+  onStatusChange, 
+  onDelete 
+}: { 
+  status: keyof typeof statusConfig
+  tasks: Task[]
+  onStatusChange: (id: number, status: string) => void
+  onDelete: (id: number) => void
+}) {
+  const config = statusConfig[status]
+  const Icon = config.icon
+
+  return (
+    <div className="flex flex-col min-w-[300px] md:min-w-0">
+      <Card className={`border-2 ${config.color}`}>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <Icon className="h-5 w-5" />
+            {config.label}
+            <Badge variant="secondary" className="ml-auto">
+              {tasks.length}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 min-h-[200px]">
+          {tasks.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No tasks yet
+            </p>
+          ) : (
+            tasks.map((task) => (
+              <TaskCard 
+                key={task.id} 
+                task={task} 
+                onStatusChange={onStatusChange}
+                onDelete={onDelete}
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export function TaskBoard({ initialTasks }: TaskBoardProps) {
+  const [tasks, setTasks] = useState(initialTasks)
+
+  const handleStatusChange = async (id: number, status: string) => {
+    setTasks((prev) =>
+      prev.map((task) => (task.id === id ? { ...task, status } : task))
+    )
+    await updateTaskStatus(id, status)
+  }
+
+  const handleDelete = async (id: number) => {
+    setTasks((prev) => prev.filter((task) => task.id !== id))
+    await deleteTask(id)
+  }
+
+  const todoTasks = tasks.filter((t) => t.status === "todo")
+  const inProgressTasks = tasks.filter((t) => t.status === "in_progress")
+  const doneTasks = tasks.filter((t) => t.status === "done")
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto pb-4">
+      <TaskColumn 
+        status="todo" 
+        tasks={todoTasks} 
+        onStatusChange={handleStatusChange}
+        onDelete={handleDelete}
+      />
+      <TaskColumn 
+        status="in_progress" 
+        tasks={inProgressTasks} 
+        onStatusChange={handleStatusChange}
+        onDelete={handleDelete}
+      />
+      <TaskColumn 
+        status="done" 
+        tasks={doneTasks} 
+        onStatusChange={handleStatusChange}
+        onDelete={handleDelete}
+      />
+    </div>
+  )
+}
