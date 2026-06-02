@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
+import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,13 +18,22 @@ import {
   ArrowLeft,
   Circle,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Paperclip,
+  FileText,
+  Image,
+  Video,
+  ExternalLink
 } from "lucide-react"
-import { type Task } from "@/lib/db/schema"
+import { type Task, type TaskAttachment } from "@/lib/db/schema"
 import { updateTaskStatus, deleteTask } from "@/app/actions/tasks"
 
+interface TaskWithAttachments extends Task {
+  attachments: TaskAttachment[]
+}
+
 interface TaskBoardProps {
-  initialTasks: Task[]
+  initialTasks: TaskWithAttachments[]
 }
 
 const statusConfig = {
@@ -50,12 +60,20 @@ const priorityColors = {
   high: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
 }
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+function getFileIcon(type: string) {
+  if (type.startsWith("image/")) return <Image className="h-3 w-3" />
+  if (type.startsWith("video/")) return <Video className="h-3 w-3" />
+  return <FileText className="h-3 w-3" />
+}
+
 function TaskCard({ 
   task, 
   onStatusChange, 
   onDelete 
 }: { 
-  task: Task
+  task: TaskWithAttachments
   onStatusChange: (id: number, status: string) => void
   onDelete: (id: number) => void
 }) {
@@ -122,6 +140,37 @@ function TaskCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        {/* Attachments Preview */}
+        {task.attachments && task.attachments.length > 0 && (
+          <div className="mt-3 space-y-1">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Paperclip className="h-3 w-3" />
+              <span>{task.attachments.length} attachment{task.attachments.length > 1 ? 's' : ''}</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {task.attachments.slice(0, 3).map((attachment) => (
+                <a
+                  key={attachment.id}
+                  href={attachment.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-xs hover:bg-muted/80 transition-colors max-w-[120px]"
+                >
+                  {getFileIcon(attachment.fileType)}
+                  <span className="truncate">{attachment.fileName}</span>
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                </a>
+              ))}
+              {task.attachments.length > 3 && (
+                <span className="px-2 py-1 bg-muted rounded text-xs">
+                  +{task.attachments.length - 3} more
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 mt-3">
           <Badge 
             variant="secondary" 
@@ -145,7 +194,7 @@ function TaskColumn({
   onDelete 
 }: { 
   status: keyof typeof statusConfig
-  tasks: Task[]
+  tasks: TaskWithAttachments[]
   onStatusChange: (id: number, status: string) => void
   onDelete: (id: number) => void
 }) {
@@ -186,18 +235,42 @@ function TaskColumn({
 }
 
 export function TaskBoard({ initialTasks }: TaskBoardProps) {
-  const [tasks, setTasks] = useState(initialTasks)
+  const { data, mutate } = useSWR<{ tasks: TaskWithAttachments[] }>(
+    "/api/tasks",
+    fetcher,
+    {
+      fallbackData: { tasks: initialTasks },
+      revalidateOnFocus: true,
+      refreshInterval: 0,
+    }
+  )
+
+  const tasks = data?.tasks ?? initialTasks
 
   const handleStatusChange = async (id: number, status: string) => {
-    setTasks((prev) =>
-      prev.map((task) => (task.id === id ? { ...task, status } : task))
+    // Optimistic update
+    mutate(
+      {
+        tasks: tasks.map((task) =>
+          task.id === id ? { ...task, status } : task
+        ),
+      },
+      false
     )
     await updateTaskStatus(id, status)
+    mutate()
   }
 
   const handleDelete = async (id: number) => {
-    setTasks((prev) => prev.filter((task) => task.id !== id))
+    // Optimistic update
+    mutate(
+      {
+        tasks: tasks.filter((task) => task.id !== id),
+      },
+      false
+    )
     await deleteTask(id)
+    mutate()
   }
 
   const todoTasks = tasks.filter((t) => t.status === "todo")

@@ -1,7 +1,9 @@
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
-import { getTasks } from "@/app/actions/tasks"
+import { db } from "@/lib/db"
+import { tasks, taskAttachments } from "@/lib/db/schema"
+import { desc, eq } from "drizzle-orm"
 import { Header } from "@/components/header"
 import { TaskBoard } from "@/components/task-board"
 import { AddTaskDialog } from "@/components/add-task-dialog"
@@ -10,7 +12,27 @@ export default async function HomePage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect("/sign-in")
 
-  const tasks = await getTasks()
+  // Fetch tasks with attachments
+  const userTasks = await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.userId, session.user.id))
+    .orderBy(desc(tasks.createdAt))
+
+  // Fetch all attachments for these tasks
+  const taskIds = userTasks.map((t) => t.id)
+  let attachments: (typeof taskAttachments.$inferSelect)[] = []
+  
+  if (taskIds.length > 0) {
+    const allAttachments = await db.select().from(taskAttachments)
+    attachments = allAttachments.filter((a) => taskIds.includes(a.taskId))
+  }
+
+  // Group attachments by task
+  const tasksWithAttachments = userTasks.map((task) => ({
+    ...task,
+    attachments: attachments.filter((a) => a.taskId === task.id),
+  }))
 
   return (
     <div className="min-h-screen bg-background">
@@ -25,7 +47,7 @@ export default async function HomePage() {
           </div>
           <AddTaskDialog />
         </div>
-        <TaskBoard initialTasks={tasks} />
+        <TaskBoard initialTasks={tasksWithAttachments} />
       </main>
     </div>
   )

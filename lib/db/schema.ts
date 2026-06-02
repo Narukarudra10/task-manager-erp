@@ -69,5 +69,19 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
+export const taskAttachments = pgTable("task_attachments", {
+  id: serial("id").primaryKey(),
+  taskId: serial("taskId")
+    .notNull()
+    .references(() => tasks.id, { onDelete: "cascade" }),
+  fileName: text("fileName").notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  fileType: text("fileType").notNull(),
+  fileSize: serial("fileSize").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 export type Task = typeof tasks.$inferSelect
 export type NewTask = typeof tasks.$inferInsert
+export type TaskAttachment = typeof taskAttachments.$inferSelect
+export type NewTaskAttachment = typeof taskAttachments.$inferInsert

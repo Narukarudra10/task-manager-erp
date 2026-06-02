@@ -2,10 +2,9 @@
 
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { tasks } from "@/lib/db/schema"
-import { and, desc, eq } from "drizzle-orm"
+import { tasks, taskAttachments } from "@/lib/db/schema"
+import { and, eq } from "drizzle-orm"
 import { headers } from "next/headers"
-import { revalidatePath } from "next/cache"
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -13,19 +12,11 @@ async function getUserId() {
   return session.user.id
 }
 
-export async function getTasks() {
-  const userId = await getUserId()
-  return db
-    .select()
-    .from(tasks)
-    .where(eq(tasks.userId, userId))
-    .orderBy(desc(tasks.createdAt))
-}
-
 export async function createTask(data: {
   title: string
   description?: string
   priority?: string
+  attachments?: { fileName: string; fileUrl: string; fileType: string; fileSize: number }[]
 }) {
   const userId = await getUserId()
   const [task] = await db
@@ -38,7 +29,20 @@ export async function createTask(data: {
       status: "todo",
     })
     .returning()
-  revalidatePath("/")
+
+  // Add attachments if any
+  if (data.attachments && data.attachments.length > 0) {
+    await db.insert(taskAttachments).values(
+      data.attachments.map((att) => ({
+        taskId: task.id,
+        fileName: att.fileName,
+        fileUrl: att.fileUrl,
+        fileType: att.fileType,
+        fileSize: att.fileSize,
+      }))
+    )
+  }
+
   return task
 }
 
@@ -48,11 +52,9 @@ export async function updateTaskStatus(id: number, status: string) {
     .update(tasks)
     .set({ status, updatedAt: new Date() })
     .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-  revalidatePath("/")
 }
 
 export async function deleteTask(id: number) {
   const userId = await getUserId()
   await db.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-  revalidatePath("/")
 }
