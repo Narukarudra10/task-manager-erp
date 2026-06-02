@@ -202,9 +202,9 @@ function TaskColumn({
   const Icon = config.icon
 
   return (
-    <div className="flex flex-col min-w-[300px] md:min-w-0">
-      <Card className={`border-2 ${config.color}`}>
-        <CardHeader className="pb-3">
+    <div className="flex flex-col min-w-[300px] md:min-w-0 h-full">
+      <Card className={`border-2 ${config.color} flex flex-col h-full`}>
+        <CardHeader className="pb-3 shrink-0">
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
             <Icon className="h-5 w-5" />
             {config.label}
@@ -213,7 +213,7 @@ function TaskColumn({
             </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 min-h-[200px]">
+        <CardContent className="flex-1 overflow-y-auto min-h-0 space-y-3 max-h-[calc(100vh-280px)]">
           {tasks.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               No tasks yet
@@ -278,7 +278,7 @@ export function TaskBoard({ initialTasks }: TaskBoardProps) {
   const doneTasks = tasks.filter((t) => t.status === "done")
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto pb-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 h-full">
       <TaskColumn 
         status="todo" 
         tasks={todoTasks} 

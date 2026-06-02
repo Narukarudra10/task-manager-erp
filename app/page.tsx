@@ -35,10 +35,10 @@ export default async function HomePage() {
   }))
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       <Header user={{ name: session.user.name, email: session.user.email }} />
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <main className="flex-1 container mx-auto px-4 py-6 flex flex-col min-h-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Task Board</h1>
             <p className="text-muted-foreground mt-1">
@@ -47,7 +47,9 @@ export default async function HomePage() {
           </div>
           <AddTaskDialog />
         </div>
-        <TaskBoard initialTasks={tasksWithAttachments} />
+        <div className="flex-1 min-h-0">
+          <TaskBoard initialTasks={tasksWithAttachments} />
+        </div>
       </main>
     </div>
   )
