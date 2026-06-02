@@ -1,5 +1,7 @@
 # task-manager-erp
 
+## Created with just vibe coding with vercel ai
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
 
 ## Built with v0
