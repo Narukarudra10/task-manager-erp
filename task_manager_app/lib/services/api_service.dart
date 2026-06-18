@@ -191,18 +191,20 @@ class ApiService {
   }
 
   Future<void> deleteAccount() async {
-    final response = await _client.delete(
-      Uri.parse('$_baseUrl/api/users'),
-      headers: _headers,
-    );
+    try {
+      final response = await _client.delete(
+        Uri.parse('$_baseUrl/api/users'),
+        headers: _headers,
+      );
 
-    if (response.statusCode == 200) {
+      if (response.statusCode != 200) {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['error'] ?? 'Failed to delete account');
+      }
+    } finally {
       _sessionCookie = null;
       _sessionToken = null;
       _currentUser = null;
-    } else {
-      final errorData = jsonDecode(response.body);
-      throw Exception(errorData['error'] ?? 'Failed to delete account');
     }
   }
 

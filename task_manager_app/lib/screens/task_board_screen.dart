@@ -122,6 +122,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
     final user = context.watch<AuthProvider>().currentUser;
     final userName = user?['name'] ?? 'User';
     final userEmail = user?['email'] ?? '';
@@ -175,48 +176,61 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
         : LayoutBuilder(
             builder: (context, constraints) {
               if (constraints.maxWidth > 800) {
-                // Desktop/Web side-by-side columns
-                return Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _buildTaskColumn(
-                          title: 'To Do',
-                          status: 'todo',
-                          icon: Icons.circle_outlined,
-                          color: isDark
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade600,
-                          tasks: todoTasks,
-                        ),
+                // Desktop/Web side-by-side columns with horizontal scroll and responsive width
+                final double colWidth = constraints.maxWidth > 1100
+                    ? (constraints.maxWidth - 64) / 3
+                    : 340.0;
+
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      height: constraints.maxHeight - 32,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: colWidth,
+                            child: _buildTaskColumn(
+                              title: 'To Do',
+                              status: 'todo',
+                              icon: Icons.circle_outlined,
+                              color: isDark
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade600,
+                              tasks: todoTasks,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            width: colWidth,
+                            child: _buildTaskColumn(
+                              title: 'In Progress',
+                              status: 'in_progress',
+                              icon: Icons.schedule_rounded,
+                              color: isDark
+                                  ? Colors.blue.shade400
+                                  : Colors.blue.shade700,
+                              tasks: inProgressTasks,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            width: colWidth,
+                            child: _buildTaskColumn(
+                              title: 'Done',
+                              status: 'done',
+                              icon: Icons.check_circle_outline_rounded,
+                              color: isDark
+                                  ? Colors.green.shade400
+                                  : Colors.green.shade700,
+                              tasks: doneTasks,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTaskColumn(
-                          title: 'In Progress',
-                          status: 'in_progress',
-                          icon: Icons.schedule_rounded,
-                          color: isDark
-                              ? Colors.blue.shade400
-                              : Colors.blue.shade700,
-                          tasks: inProgressTasks,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTaskColumn(
-                          title: 'Done',
-                          status: 'done',
-                          icon: Icons.check_circle_outline_rounded,
-                          color: isDark
-                              ? Colors.green.shade400
-                              : Colors.green.shade700,
-                          tasks: doneTasks,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 );
               } else {
@@ -273,11 +287,13 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
         title: Row(
           children: [
             const Icon(Icons.task_alt_rounded, color: Colors.white),
-            const SizedBox(width: 8),
-            const Text(
-              'TaskFlow',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            if (screenWidth > 480) ...[
+              const SizedBox(width: 8),
+              const Text(
+                'TaskFlow',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -351,34 +367,51 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
             ),
           ),
           const SizedBox(width: 8),
-          // User profile chip
+          // Responsive User Profile Avatar/Chip
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: Tooltip(
-              message: userEmail,
-              child: Chip(
-                backgroundColor: Colors.white.withOpacity(0.15),
-                side: BorderSide.none,
-                labelStyle: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-                avatar: CircleAvatar(
-                  backgroundColor: Colors.white,
-                  child: Text(
-                    initials,
-                    style: TextStyle(
-                      color: isDark
-                          ? const Color(0xFF0F172A)
-                          : const Color(0xFF0079BF),
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+              message: '$userName ($userEmail)',
+              child: screenWidth > 600
+                  ? Chip(
+                      backgroundColor: Colors.white.withOpacity(0.15),
+                      side: BorderSide.none,
+                      avatar: CircleAvatar(
+                        backgroundColor: Colors.white,
+                        child: Text(
+                          initials,
+                          style: TextStyle(
+                            color: isDark
+                                ? const Color(0xFF0F172A)
+                                : const Color(0xFF0079BF),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      label: Text(
+                        userName,
+                        style: TextStyle(
+                          color: isDark
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF0079BF),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Colors.white.withOpacity(0.25),
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                label: Text(userName),
-              ),
             ),
           ),
           IconButton(
@@ -391,22 +424,6 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
               );
               if (mounted) {
                 context.read<TaskProvider>().loadTasks();
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.white),
-            tooltip: 'Sign Out',
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              try {
-                await context.read<AuthProvider>().signOut();
-              } catch (e) {
-                if (mounted) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('Failed to sign out: $e')),
-                  );
-                }
               }
             },
           ),
