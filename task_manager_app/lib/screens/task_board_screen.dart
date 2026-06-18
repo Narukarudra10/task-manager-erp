@@ -321,6 +321,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen> with SingleTickerProv
               child: Chip(
                 backgroundColor: Colors.white.withOpacity(0.15),
                 side: BorderSide.none,
+                labelStyle: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
                 avatar: CircleAvatar(
                   backgroundColor: Colors.white,
                   child: Text(
@@ -332,10 +333,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen> with SingleTickerProv
                     ),
                   ),
                 ),
-                label: Text(
-                  userName,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white),
-                ),
+                label: Text(userName),
               ),
             ),
           ),

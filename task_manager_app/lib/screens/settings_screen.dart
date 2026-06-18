@@ -14,15 +14,15 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _profileFormKey = GlobalKey<FormState>();
   final _passwordFormKey = GlobalKey<FormState>();
-  
+
   late TextEditingController _nameController;
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   bool _isProfileSaving = false;
   bool _isPasswordSaving = false;
-  
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +47,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     try {
-      await context.read<AuthProvider>().updateProfile(name: _nameController.text.trim());
+      await context.read<AuthProvider>().updateProfile(
+        name: _nameController.text.trim(),
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
@@ -55,9 +57,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update profile: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update profile: $e')));
       }
     } finally {
       if (mounted) {
@@ -107,7 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = context.read<AuthProvider>().currentUser;
     final userEmail = user?['email'] as String? ?? '';
     final confirmationController = TextEditingController();
-    
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -115,7 +117,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           builder: (context, setState) {
             final text = confirmationController.text.trim();
             final isMatching = text.toLowerCase() == userEmail.toLowerCase();
-            
+
             return AlertDialog(
               title: const Text('Delete Your Account?'),
               content: Column(
@@ -128,7 +130,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'To confirm, please type your email address:',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -154,7 +159,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: isMatching ? () => Navigator.pop(context, true) : null,
+                  onPressed: isMatching
+                      ? () => Navigator.pop(context, true)
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red.shade700,
                     foregroundColor: Colors.white,
@@ -170,7 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (confirm == true) {
       if (!mounted) return;
-      
+
       final messenger = ScaffoldMessenger.of(context);
       messenger.showSnackBar(
         const SnackBar(content: Text('Deleting account...')),
@@ -194,7 +201,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings & Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Settings & Profile',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: Container(
@@ -207,7 +218,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
@@ -216,11 +229,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.palette_outlined, color: theme.colorScheme.primary),
+                          Icon(
+                            Icons.palette_outlined,
+                            color: theme.colorScheme.primary,
+                          ),
                           const SizedBox(width: 12),
                           Text(
                             'Appearance',
-                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -259,7 +277,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
@@ -270,11 +290,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.person_outline_rounded, color: theme.colorScheme.primary),
+                            Icon(
+                              Icons.person_outline_rounded,
+                              color: theme.colorScheme.primary,
+                            ),
                             const SizedBox(width: 12),
                             Text(
                               'Profile Details',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -312,10 +337,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation(
+                                        Colors.white,
+                                      ),
                                     ),
                                   )
-                                : const Text('Save Name', style: TextStyle(fontWeight: FontWeight.bold)),
+                                : const Text(
+                                    'Save Name',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -330,7 +362,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
@@ -341,11 +375,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.lock_outline_rounded, color: theme.colorScheme.primary),
+                            Icon(
+                              Icons.lock_outline_rounded,
+                              color: theme.colorScheme.primary,
+                            ),
                             const SizedBox(width: 12),
                             Text(
                               'Change Password',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -407,7 +446,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: _isPasswordSaving ? null : _changePassword,
+                            onPressed: _isPasswordSaving
+                                ? null
+                                : _changePassword,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: theme.colorScheme.primary,
                               foregroundColor: theme.colorScheme.onPrimary,
@@ -422,10 +463,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation(
+                                        Colors.white,
+                                      ),
                                     ),
                                   )
-                                : const Text('Change Password', style: TextStyle(fontWeight: FontWeight.bold)),
+                                : const Text(
+                                    'Change Password',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -449,7 +497,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.dangerous_outlined, color: Colors.red.shade700),
+                          Icon(
+                            Icons.dangerous_outlined,
+                            color: Colors.red.shade700,
+                          ),
                           const SizedBox(width: 12),
                           Text(
                             'Account Management',
