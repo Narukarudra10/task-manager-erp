@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build:client": "node scripts/build-client.js",
     "build": "node scripts/build-client.js && next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint ."
   },
   "dependencies": {
