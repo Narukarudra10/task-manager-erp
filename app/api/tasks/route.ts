@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         title: data.title,
         description: data.description || null,
         priority: data.priority || 'medium',
-        status: 'todo',
+        status: data.status || 'todo',
       })
       .returning()
 

@@ -234,6 +234,7 @@ class ApiService {
     required String title,
     String? description,
     String priority = 'medium',
+    String status = 'todo',
     String? assignedTo,
     List<Map<String, dynamic>> attachments = const [],
   }) async {
@@ -244,6 +245,7 @@ class ApiService {
         'title': title,
         'description': description,
         'priority': priority,
+        'status': status,
         'assignedTo': assignedTo,
         'attachments': attachments,
       }),

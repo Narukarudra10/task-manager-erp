@@ -6,7 +6,8 @@ import '../services/api_service.dart';
 import '../providers/task_provider.dart';
 
 class AddTaskDialog extends StatefulWidget {
-  const AddTaskDialog({super.key});
+  final String initialStatus;
+  const AddTaskDialog({super.key, this.initialStatus = 'todo'});
 
   @override
   State<AddTaskDialog> createState() => _AddTaskDialogState();
@@ -117,6 +118,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         priority: _priority,
+        status: widget.initialStatus,
         assignedTo: _assignedUserId,
         attachments: _attachments,
       );
