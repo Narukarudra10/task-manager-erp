@@ -23,9 +23,16 @@ class AuthProvider extends ChangeNotifier {
       
       // Load and apply session token (Web and Native)
       final savedToken = box.get('session_token') as String?;
-      if (savedToken != null) {
-        _apiService.sessionToken = savedToken;
+      if (savedToken == null) {
+        _apiService.sessionToken = null;
+        _apiService.currentUser = null;
+        if (!kIsWeb) {
+          _apiService.sessionCookie = null;
+        }
+        return;
       }
+
+      _apiService.sessionToken = savedToken;
 
       if (!kIsWeb) {
         // Native session restoration: load cookie from Hive
@@ -102,12 +109,14 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _apiService.signOut();
+    } catch (e) {
+      // Ignore backend sign out error to ensure local cache is always cleared
+    } finally {
       final box = Hive.box('settings');
       await box.delete('session_token');
       if (!kIsWeb) {
         await box.delete('session_cookie');
       }
-    } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -118,12 +127,14 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _apiService.deleteAccount();
+    } catch (e) {
+      // Ignore backend error to ensure local cache is always cleared
+    } finally {
       final box = Hive.box('settings');
       await box.delete('session_token');
       if (!kIsWeb) {
         await box.delete('session_cookie');
       }
-    } finally {
       _isLoading = false;
       notifyListeners();
     }
