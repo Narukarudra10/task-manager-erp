@@ -73,6 +73,10 @@ class ApiService {
   void _updateTokenAndCookie(http.Response response, Map<String, dynamic> data) {
     if (data['session'] != null && data['session']['token'] != null) {
       _sessionToken = data['session']['token'] as String;
+    } else if (data['token'] != null) {
+      _sessionToken = data['token'] as String;
+    } else if (response.headers['set-auth-token'] != null) {
+      _sessionToken = response.headers['set-auth-token'];
     }
     _updateCookie(response);
   }
