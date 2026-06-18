@@ -30,6 +30,7 @@ export const auth = betterAuth({
     provider: "sqlite",
     schema: schema,
   }),
+  secret: process.env.BETTER_AUTH_SECRET || "f3b9c2a8e10d1c7d2e4f5a6b7c8d9e0f",
   baseURL: getBaseURL(),
   trustedOrigins: getTrustedOrigins(),
   emailAndPassword: {
