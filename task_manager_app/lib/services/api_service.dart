@@ -22,6 +22,11 @@ class ApiService {
   Map<String, dynamic>? _currentUser;
 
   static String get _defaultBaseUrl {
+    if (kIsWeb) {
+      final baseUri = Uri.base;
+      final portStr = baseUri.hasPort ? ':${baseUri.port}' : '';
+      return '${baseUri.scheme}://${baseUri.host}$portStr';
+    }
     if (!kIsWeb && Platform.isAndroid) {
       // Connect to host machine from Android emulator
       return 'http://10.0.2.2:3000';
