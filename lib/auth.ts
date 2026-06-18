@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth"
-import { Pool } from "pg"
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { db } from "./db"
+import * as schema from "./db/schema"
 
 const getBaseURL = () => {
   if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL
@@ -13,7 +13,10 @@ const getBaseURL = () => {
 }
 
 const getTrustedOrigins = () => {
-  const origins: string[] = []
+  const origins: string[] = [
+    "http://localhost:*",
+    "https://localhost:*",
+  ]
   if (process.env.BETTER_AUTH_URL) origins.push(process.env.BETTER_AUTH_URL)
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
     origins.push(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
@@ -23,7 +26,10 @@ const getTrustedOrigins = () => {
 }
 
 export const auth = betterAuth({
-  database: pool,
+  database: drizzleAdapter(db, {
+    provider: "sqlite",
+    schema: schema,
+  }),
   baseURL: getBaseURL(),
   trustedOrigins: getTrustedOrigins(),
   emailAndPassword: {

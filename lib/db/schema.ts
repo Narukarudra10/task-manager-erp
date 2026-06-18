@@ -1,28 +1,30 @@
-import {
-  pgTable,
-  text,
-  timestamp,
-  boolean,
-  serial,
-} from "drizzle-orm/pg-core"
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
 
 // Better Auth tables
-export const user = pgTable("user", {
+export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("emailVerified").notNull().default(false),
+  emailVerified: integer("emailVerified", { mode: "boolean" }).notNull().default(false),
   image: text("image"),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  createdAt: integer("createdAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
-export const session = pgTable("session", {
+export const session = sqliteTable("session", {
   id: text("id").primaryKey(),
-  expiresAt: timestamp("expiresAt").notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
   token: text("token").notNull().unique(),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  createdAt: integer("createdAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
   ipAddress: text("ipAddress"),
   userAgent: text("userAgent"),
   userId: text("userId")
@@ -30,7 +32,7 @@ export const session = pgTable("session", {
     .references(() => user.id, { onDelete: "cascade" }),
 })
 
-export const account = pgTable("account", {
+export const account = sqliteTable("account", {
   id: text("id").primaryKey(),
   accountId: text("accountId").notNull(),
   providerId: text("providerId").notNull(),
@@ -40,45 +42,56 @@ export const account = pgTable("account", {
   accessToken: text("accessToken"),
   refreshToken: text("refreshToken"),
   idToken: text("idToken"),
-  accessTokenExpiresAt: timestamp("accessTokenExpiresAt"),
-  refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt"),
+  accessTokenExpiresAt: integer("accessTokenExpiresAt", { mode: "timestamp" }),
+  refreshTokenExpiresAt: integer("refreshTokenExpiresAt", { mode: "timestamp" }),
   scope: text("scope"),
   password: text("password"),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  createdAt: integer("createdAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
-export const verification = pgTable("verification", {
+export const verification = sqliteTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: timestamp("expiresAt").notNull(),
-  createdAt: timestamp("createdAt").defaultNow(),
-  updatedAt: timestamp("updatedAt").defaultNow(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 })
 
 // App tables
-export const tasks = pgTable("tasks", {
-  id: serial("id").primaryKey(),
+export const tasks = sqliteTable("tasks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("userId").notNull(),
+  assignedTo: text("assignedTo").references(() => user.id, { onDelete: "set null" }),
   title: text("title").notNull(),
   description: text("description"),
   status: text("status").notNull().default("todo"),
   priority: text("priority").notNull().default("medium"),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  createdAt: integer("createdAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
-export const taskAttachments = pgTable("task_attachments", {
-  id: serial("id").primaryKey(),
-  taskId: serial("taskId")
+export const taskAttachments = sqliteTable("task_attachments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  taskId: integer("taskId")
     .notNull()
     .references(() => tasks.id, { onDelete: "cascade" }),
   fileName: text("fileName").notNull(),
   fileUrl: text("fileUrl").notNull(),
   fileType: text("fileType").notNull(),
-  fileSize: serial("fileSize").notNull(),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  fileSize: integer("fileSize").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
 export type Task = typeof tasks.$inferSelect
