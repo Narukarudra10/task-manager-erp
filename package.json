@@ -42,7 +42,6 @@
     "@vercel/blob": "^2.4.0",
     "autoprefixer": "^10.4.20",
     "better-auth": "^1.6.19",
-    "better-sqlite3": "^11.8.0",
     "postgres": "^3.4.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
