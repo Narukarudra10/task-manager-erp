@@ -2,9 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { groupInvites, groupMembers, groups, user } from '@/lib/db/schema'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import crypto from 'crypto'
+import { sendInviteEmail } from '@/lib/email'
 
 // GET pending invites for current user's email
 export async function GET() {
@@ -74,6 +75,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden. Only group admins can invite members.' }, { status: 403 })
     }
 
+    // Fetch group details for the email
+    const [group] = await db
+      .select({ name: groups.name })
+      .from(groups)
+      .where(eq(groups.id, groupId))
+      .limit(1)
+
     // Generate unique token for invite
     const inviteId = crypto.randomUUID()
 
@@ -93,7 +101,21 @@ export async function POST(request: NextRequest) {
       })
       .returning()
 
-    return NextResponse.json({ invite })
+    // Send invite email (non-fatal if it fails)
+    const appUrl = process.env.BETTER_AUTH_URL || 'http://localhost:3000'
+    const emailResult = await sendInviteEmail({
+      toEmail: email.toLowerCase().trim(),
+      invitedByName: session.user.name || session.user.email,
+      groupName: group?.name || 'the workspace',
+      appUrl,
+      role: role || 'member',
+    })
+
+    return NextResponse.json({
+      invite,
+      emailSent: emailResult.success,
+      emailError: emailResult.success ? undefined : emailResult.error,
+    })
   } catch (error) {
     console.error('Error creating invitation:', error)
     return NextResponse.json({ error: 'Failed to invite user' }, { status: 500 })
