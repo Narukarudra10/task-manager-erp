@@ -3,7 +3,6 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { bearer } from "better-auth/plugins"
 import { db } from "./db"
 import * as schema from "./db/schema"
-import { createAuthMiddleware, APIError } from "better-auth/api"
 import { eq, and } from "drizzle-orm"
 
 const getBaseURL = () => {
@@ -42,34 +41,7 @@ export const auth = betterAuth({
   plugins: [
     bearer(),
   ],
-  hooks: {
-    before: createAuthMiddleware(async (ctx) => {
-      if (ctx.path === "/sign-up/email") {
-        const { email } = ctx.body || {}
-        if (!email) return
 
-        // Bootstrap check: if there are no users at all, let this first user register (they will be the main admin)
-        const existingUsers = await db.select().from(schema.user).limit(1)
-        if (existingUsers.length === 0) {
-          return
-        }
-
-        // Otherwise, verify there is a pending invite for this email
-        const invite = await db.query.groupInvites.findFirst({
-          where: and(
-            eq(schema.groupInvites.email, email.toLowerCase().trim()),
-            eq(schema.groupInvites.status, "pending")
-          ),
-        })
-
-        if (!invite) {
-          throw new APIError("BAD_REQUEST", {
-            message: "Registration is invite-only. You must be invited to a group before you can register."
-          })
-        }
-      }
-    }),
-  },
   databaseHooks: {
     user: {
       create: {

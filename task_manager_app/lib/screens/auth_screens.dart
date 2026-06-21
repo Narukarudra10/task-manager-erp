@@ -442,12 +442,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Registration is invite-only. You must have a pending invitation sent to your email to sign up.',
+                            'Sign up to create your own workspace or join one via invite.',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: isDark
-                                  ? Colors.amber.shade400
-                                  : Colors.amber.shade800,
+                                  ? Colors.tealAccent.shade100
+                                  : Colors.teal.shade700,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
