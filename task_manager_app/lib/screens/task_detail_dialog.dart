@@ -1,92 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/task_model.dart';
 import '../services/api_service.dart';
+import '../providers/task_provider.dart';
+import '../providers/group_provider.dart';
 
-class TaskDetailDialog extends StatefulWidget {
-  final Task task;
-  final ValueChanged<String> onStatusChange;
-  final VoidCallback onDelete;
-  final VoidCallback onTaskUpdated;
+class TaskDetailDialog extends StatelessWidget {
+  final int taskId;
 
   const TaskDetailDialog({
     super.key,
-    required this.task,
-    required this.onStatusChange,
-    required this.onDelete,
-    required this.onTaskUpdated,
+    required this.taskId,
   });
-
-  @override
-  State<TaskDetailDialog> createState() => _TaskDetailDialogState();
-}
-
-class _TaskDetailDialogState extends State<TaskDetailDialog> {
-  List<dynamic> _users = [];
-  String? _assignedUserId;
-  bool _isAssigning = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _assignedUserId = widget.task.assignedTo;
-    _loadUsers();
-  }
-
-  Future<void> _loadUsers() async {
-    try {
-      final list = await ApiService().fetchUsers();
-      setState(() {
-        _users = list;
-      });
-    } catch (e) {
-      // Fail silently
-    }
-  }
-
-  Future<void> _updateAssignee(String? newAssigneeId) async {
-    setState(() {
-      _isAssigning = true;
-    });
-
-    try {
-      await ApiService().updateTask(
-        id: widget.task.id,
-        assignedTo: newAssigneeId ?? '',
-      );
-      setState(() {
-        _assignedUserId = newAssigneeId;
-      });
-      widget.onTaskUpdated();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Assignee updated successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update assignee: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAssigning = false;
-        });
-      }
-    }
-  }
-
-  String _getAssigneeName() {
-    if (_assignedUserId == null) return 'Unassigned';
-    final userMatch = _users.firstWhere(
-      (u) => u['id'] == _assignedUserId,
-      orElse: () => null,
-    );
-    if (userMatch != null) return userMatch['name'] as String;
-    return widget.task.assigneeName ?? 'User';
-  }
 
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
@@ -126,15 +52,79 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
     return '$first$last';
   }
 
+  Future<void> _confirmDelete(BuildContext context, Task task) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Task'),
+        content: Text('Are you sure you want to delete "${task.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Close TaskDetailDialog
+      try {
+        await context.read<TaskProvider>().deleteTask(task);
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete task: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateAssignee(BuildContext context, int taskId, String? newAssigneeId) async {
+    try {
+      await context.read<TaskProvider>().updateTaskAssignee(taskId, newAssigneeId);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Assignee updated successfully')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update assignee: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasAttachments = widget.task.attachments.isNotEmpty;
+    final taskProvider = context.watch<TaskProvider>();
+    final groupProvider = context.watch<GroupProvider>();
+
+    final tasks = taskProvider.tasks;
+    final taskIndex = tasks.indexWhere((t) => t.id == taskId);
+    if (taskIndex == -1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+      });
+      return const SizedBox.shrink();
+    }
+    final task = tasks[taskIndex];
+    final hasAttachments = task.attachments.isNotEmpty;
+    final isAssigning = taskProvider.isAssigning;
 
     // Get priority badge color
     Color priorityColor;
     Color priorityTextColor;
-    switch (widget.task.priority) {
+    switch (task.priority) {
       case 'high':
         priorityColor = Colors.red.shade100;
         priorityTextColor = Colors.red.shade900;
@@ -155,23 +145,39 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
     String? prevStatus;
     String? nextLabel;
     String? prevLabel;
-    if (widget.task.status == 'todo') {
+    if (task.status == 'todo') {
       nextStatus = 'in_progress';
       nextLabel = 'In Progress';
-    } else if (widget.task.status == 'in_progress') {
+    } else if (task.status == 'in_progress') {
       prevStatus = 'todo';
       prevLabel = 'To Do';
       nextStatus = 'done';
       nextLabel = 'Done';
-    } else if (widget.task.status == 'done') {
+    } else if (task.status == 'done') {
       prevStatus = 'in_progress';
       prevLabel = 'In Progress';
     }
 
     // Creator initials
-    final creatorName = widget.task.creatorName ?? 'User';
-    final creatorEmail = widget.task.creatorEmail ?? '';
+    final creatorName = task.creatorName ?? 'User';
+    final creatorEmail = task.creatorEmail ?? '';
     final creatorInitials = _getInitials(creatorName);
+
+    final members = groupProvider.activeGroupMembers;
+
+    // Helper to get selected assignee name
+    String assigneeName = 'Unassigned';
+    if (task.assignedTo != null) {
+      final match = members.firstWhere(
+        (m) => m['id'] == task.assignedTo,
+        orElse: () => null,
+      );
+      if (match != null) {
+        assigneeName = match['name'] as String;
+      } else {
+        assigneeName = task.assigneeName ?? 'User';
+      }
+    }
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -193,7 +199,7 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      '${widget.task.priority.toUpperCase()} PRIORITY',
+                      '${task.priority.toUpperCase()} PRIORITY',
                       style: TextStyle(
                         color: priorityTextColor,
                         fontSize: 10,
@@ -209,7 +215,7 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      widget.task.status.replaceAll('_', ' ').toUpperCase(),
+                      task.status.replaceAll('_', ' ').toUpperCase(),
                       style: TextStyle(
                         color: theme.colorScheme.onSecondaryContainer,
                         fontSize: 10,
@@ -230,14 +236,14 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
 
               // Title
               Text(
-                widget.task.title,
+                task.title,
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Created on ${widget.task.createdAt.month}/${widget.task.createdAt.day}/${widget.task.createdAt.year} at ${widget.task.createdAt.hour}:${widget.task.createdAt.minute.toString().padLeft(2, '0')}',
+                'Created on ${task.createdAt.month}/${task.createdAt.day}/${task.createdAt.year} at ${task.createdAt.hour}:${task.createdAt.minute.toString().padLeft(2, '0')}',
                 style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
               ),
               const Divider(height: 32),
@@ -259,8 +265,8 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                   border: Border.all(color: theme.colorScheme.outlineVariant.withAlpha(128)),
                 ),
                 child: Text(
-                  widget.task.description != null && widget.task.description!.isNotEmpty
-                      ? widget.task.description!
+                  task.description != null && task.description!.isNotEmpty
+                      ? task.description!
                       : 'No description provided.',
                   style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
                 ),
@@ -287,18 +293,18 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                   children: [
                     CircleAvatar(
                       radius: 16,
-                      backgroundColor: _assignedUserId != null
+                      backgroundColor: task.assignedTo != null
                           ? theme.colorScheme.secondary
                           : Colors.grey.shade400,
                       foregroundColor: Colors.white,
                       child: Text(
-                        _assignedUserId != null ? _getInitials(_getAssigneeName()) : '?',
+                        task.assignedTo != null ? _getInitials(assigneeName) : '?',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _isAssigning
+                      child: isAssigning
                           ? const Align(
                               alignment: Alignment.centerLeft,
                               child: SizedBox(
@@ -309,7 +315,7 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                             )
                           : DropdownButtonHideUnderline(
                               child: DropdownButton<String?>(
-                                value: _assignedUserId,
+                                value: task.assignedTo,
                                 isExpanded: true,
                                 hint: const Text('Unassigned', style: TextStyle(fontSize: 14)),
                                 style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -318,17 +324,17 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                                     value: null,
                                     child: Text('Unassigned', style: TextStyle(fontWeight: FontWeight.normal, color: Colors.grey, fontSize: 14)),
                                   ),
-                                  if (_assignedUserId != null && !_users.any((u) => u['id'] == _assignedUserId))
+                                  if (task.assignedTo != null && !members.any((u) => u['id'] == task.assignedTo))
                                     DropdownMenuItem<String?>(
-                                      value: _assignedUserId,
-                                      child: Text(widget.task.assigneeName ?? 'Loading...', style: const TextStyle(fontSize: 14)),
+                                      value: task.assignedTo,
+                                      child: Text(task.assigneeName ?? 'Loading...', style: const TextStyle(fontSize: 14)),
                                     ),
-                                  ..._users.map((u) => DropdownMenuItem<String?>(
+                                  ...members.map((u) => DropdownMenuItem<String?>(
                                         value: u['id'] as String,
                                         child: Text(u['name'] as String, style: const TextStyle(fontSize: 14)),
                                       )),
                                 ],
-                                onChanged: (value) => _updateAssignee(value),
+                                onChanged: (value) => _updateAssignee(context, task.id, value),
                               ),
                             ),
                     ),
@@ -390,7 +396,7 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
 
               // Attachments
               Text(
-                'Attachments (${widget.task.attachments.length})',
+                'Attachments (${task.attachments.length})',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.onSurfaceVariant,
@@ -401,9 +407,9 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: widget.task.attachments.length,
+                  itemCount: task.attachments.length,
                   itemBuilder: (context, index) {
-                    final att = widget.task.attachments[index];
+                    final att = task.attachments[index];
                     return Card(
                       elevation: 0,
                       color: theme.colorScheme.surfaceVariant.withOpacity(0.2),
@@ -452,10 +458,7 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      widget.onDelete();
-                    },
+                    onPressed: () => _confirmDelete(context, task),
                     icon: const Icon(Icons.delete_outline_rounded, size: 18),
                     label: const Text('Delete'),
                     style: OutlinedButton.styleFrom(
@@ -468,8 +471,7 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                       if (prevStatus != null) ...[
                         ElevatedButton(
                           onPressed: () {
-                            Navigator.pop(context);
-                            widget.onStatusChange(prevStatus!);
+                            context.read<TaskProvider>().updateTaskStatus(task, prevStatus!);
                           },
                           style: ElevatedButton.styleFrom(
                             elevation: 0,
@@ -491,8 +493,7 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                       if (nextStatus != null)
                         ElevatedButton(
                           onPressed: () {
-                            Navigator.pop(context);
-                            widget.onStatusChange(nextStatus!);
+                            context.read<TaskProvider>().updateTaskStatus(task, nextStatus!);
                           },
                           style: ElevatedButton.styleFrom(
                             elevation: 0,

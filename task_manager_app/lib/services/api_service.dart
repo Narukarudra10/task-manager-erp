@@ -222,9 +222,10 @@ class ApiService {
     }
   }
 
-  Future<List<dynamic>> fetchTasks() async {
+  Future<List<dynamic>> fetchTasks({int? groupId}) async {
+    final queryParams = groupId != null ? '?groupId=$groupId' : '';
     final response = await _client.get(
-      Uri.parse('$_baseUrl/api/tasks'),
+      Uri.parse('$_baseUrl/api/tasks$queryParams'),
       headers: _headers,
     );
 
@@ -238,6 +239,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> createTask({
     required String title,
+    required int groupId,
     String? description,
     String priority = 'medium',
     String status = 'todo',
@@ -249,6 +251,7 @@ class ApiService {
       headers: _headers,
       body: jsonEncode({
         'title': title,
+        'groupId': groupId,
         'description': description,
         'priority': priority,
         'status': status,
@@ -303,6 +306,116 @@ class ApiService {
     if (response.statusCode != 200) {
       final errorData = jsonDecode(response.body);
       throw Exception(errorData['error'] ?? 'Failed to delete task');
+    }
+  }
+
+  // Workspaces / Groups API Support
+  Future<List<dynamic>> fetchGroups() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/api/groups'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['groups'] ?? [];
+    } else {
+      throw Exception('Failed to load groups');
+    }
+  }
+
+  Future<Map<String, dynamic>> createGroup({
+    required String name,
+    String? description,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/api/groups'),
+      headers: _headers,
+      body: jsonEncode({
+        'name': name,
+        'description': description,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['group'] ?? {};
+    } else {
+      final errorData = jsonDecode(response.body);
+      throw Exception(errorData['error'] ?? 'Failed to create group');
+    }
+  }
+
+  Future<List<dynamic>> fetchGroupMembers(int groupId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/api/groups/members?groupId=$groupId'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['members'] ?? [];
+    } else {
+      final errorData = jsonDecode(response.body);
+      throw Exception(errorData['error'] ?? 'Failed to load group members');
+    }
+  }
+
+  Future<List<dynamic>> fetchPendingInvites() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/api/groups/invites'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['invites'] ?? [];
+    } else {
+      final errorData = jsonDecode(response.body);
+      throw Exception(errorData['error'] ?? 'Failed to load invites');
+    }
+  }
+
+  Future<Map<String, dynamic>> sendInvite({
+    required int groupId,
+    required String email,
+    String role = 'member',
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/api/groups/invites'),
+      headers: _headers,
+      body: jsonEncode({
+        'groupId': groupId,
+        'email': email,
+        'role': role,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['invite'] ?? {};
+    } else {
+      final errorData = jsonDecode(response.body);
+      throw Exception(errorData['error'] ?? 'Failed to send invite');
+    }
+  }
+
+  Future<void> respondToInvite({
+    required String inviteId,
+    required String action, // 'accept' or 'decline'
+  }) async {
+    final response = await _client.patch(
+      Uri.parse('$_baseUrl/api/groups/invites'),
+      headers: _headers,
+      body: jsonEncode({
+        'inviteId': inviteId,
+        'action': action,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      final errorData = jsonDecode(response.body);
+      throw Exception(errorData['error'] ?? 'Failed to update invitation');
     }
   }
 

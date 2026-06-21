@@ -6,6 +6,7 @@ import 'screens/task_board_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/task_provider.dart';
+import 'providers/group_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +18,15 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => TaskProvider()),
+        ChangeNotifierProvider(create: (_) => GroupProvider()),
+        ChangeNotifierProxyProvider<GroupProvider, TaskProvider>(
+          create: (_) => TaskProvider(),
+          update: (_, groupProvider, taskProvider) {
+            final activeGroup = groupProvider.activeGroup;
+            final groupId = activeGroup != null ? activeGroup['id'] as int? : null;
+            return taskProvider!..updateActiveGroup(groupId);
+          },
+        ),
       ],
       child: const MyApp(),
     ),

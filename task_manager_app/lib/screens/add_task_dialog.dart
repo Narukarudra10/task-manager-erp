@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../providers/task_provider.dart';
+import '../providers/group_provider.dart';
 
 class AddTaskDialog extends StatefulWidget {
   final String initialStatus;
@@ -17,18 +18,13 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  String _priority = 'medium';
-  String? _assignedUserId;
-  
-  bool _isSaving = false;
-  bool _isUploading = false;
-  final List<Map<String, dynamic>> _attachments = [];
-  List<dynamic> _users = [];
 
   @override
   void initState() {
     super.initState();
-    _loadUsers();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TaskProvider>().resetCreateState();
+    });
   }
 
   @override
@@ -38,22 +34,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
     super.dispose();
   }
 
-  Future<void> _loadUsers() async {
-    try {
-      final list = await ApiService().fetchUsers();
-      setState(() {
-        _users = list;
-      });
-    } catch (e) {
-      // Fail silently, fallback to empty user list
-    }
-  }
-
   Future<void> _pickAndUploadFiles() async {
-    setState(() {
-      _isUploading = true;
-    });
-
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
@@ -67,21 +48,11 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
           final fileName = file.name;
           final fileBytes = file.bytes;
           if (filePath != null || fileBytes != null) {
-            // Upload immediately to the API
-            final uploadedData = await ApiService().uploadFile(
+            await context.read<TaskProvider>().uploadAttachment(
               filePath: filePath,
               fileBytes: fileBytes,
               fileName: fileName,
             );
-            
-            setState(() {
-              _attachments.add({
-                'fileName': uploadedData['fileName'],
-                'fileUrl': uploadedData['url'],
-                'fileType': uploadedData['fileType'],
-                'fileSize': uploadedData['fileSize'],
-              });
-            });
           }
         }
       }
@@ -91,36 +62,25 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
           SnackBar(content: Text('Upload failed: ${e.toString().replaceAll('Exception: ', '')}')),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUploading = false;
-        });
-      }
     }
   }
 
   void _removeAttachment(int index) {
-    setState(() {
-      _attachments.removeAt(index);
-    });
+    context.read<TaskProvider>().removeCreateAttachment(index);
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isSaving = true;
-    });
-
+    final taskProvider = context.read<TaskProvider>();
     try {
-      await context.read<TaskProvider>().createTask(
+      await taskProvider.createTask(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        priority: _priority,
+        priority: taskProvider.createPriority,
         status: widget.initialStatus,
-        assignedTo: _assignedUserId,
-        attachments: _attachments,
+        assignedTo: taskProvider.createAssignedUserId,
+        attachments: taskProvider.createAttachments,
       );
       if (mounted) {
         Navigator.pop(context, true);
@@ -130,12 +90,6 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to create task: $e')),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
       }
     }
   }
@@ -149,6 +103,15 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final taskProvider = context.watch<TaskProvider>();
+    final groupProvider = context.watch<GroupProvider>();
+
+    final isSaving = taskProvider.isCreateSaving;
+    final isUploading = taskProvider.isCreateUploading;
+    final attachments = taskProvider.createAttachments;
+    final priority = taskProvider.createPriority;
+    final assignedUserId = taskProvider.createAssignedUserId;
+    final members = groupProvider.activeGroupMembers;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -209,7 +172,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
 
                 // Priority Dropdown
                 DropdownButtonFormField<String>(
-                  value: _priority,
+                  value: priority,
                   decoration: const InputDecoration(
                     labelText: 'Priority',
                     border: OutlineInputBorder(),
@@ -221,9 +184,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                   ],
                   onChanged: (value) {
                     if (value != null) {
-                      setState(() {
-                        _priority = value;
-                      });
+                      taskProvider.setCreatePriority(value);
                     }
                   },
                 ),
@@ -231,7 +192,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
 
                 // Assign To Dropdown
                 DropdownButtonFormField<String?>(
-                  value: _assignedUserId,
+                  value: assignedUserId,
                   decoration: const InputDecoration(
                     labelText: 'Assign To (optional)',
                     border: OutlineInputBorder(),
@@ -242,15 +203,13 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                       value: null,
                       child: Text('Unassigned'),
                     ),
-                    ..._users.map((u) => DropdownMenuItem<String?>(
+                    ...members.map((u) => DropdownMenuItem<String?>(
                           value: u['id'] as String,
                           child: Text(u['name'] as String),
                         )),
                   ],
                   onChanged: (value) {
-                    setState(() {
-                      _assignedUserId = value;
-                    });
+                    taskProvider.setCreateAssignedUserId(value);
                   },
                 ),
                 const SizedBox(height: 20),
@@ -264,22 +223,22 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                       style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     OutlinedButton.icon(
-                      onPressed: _isUploading || _isSaving ? null : _pickAndUploadFiles,
-                      icon: _isUploading
+                      onPressed: isUploading || isSaving ? null : _pickAndUploadFiles,
+                      icon: isUploading
                           ? const SizedBox(
                               height: 14,
                               width: 14,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.upload_file_rounded, size: 16),
-                      label: Text(_isUploading ? 'Uploading...' : 'Add Files'),
+                      label: Text(isUploading ? 'Uploading...' : 'Add Files'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
                 // Attachments List
-                if (_attachments.isNotEmpty)
+                if (attachments.isNotEmpty)
                   Container(
                     constraints: const BoxConstraints(maxHeight: 150),
                     decoration: BoxDecoration(
@@ -288,9 +247,9 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                     ),
                     child: ListView.builder(
                       shrinkWrap: true,
-                      itemCount: _attachments.length,
+                      itemCount: attachments.length,
                       itemBuilder: (context, index) {
-                        final att = _attachments[index];
+                        final att = attachments[index];
                         return ListTile(
                           dense: true,
                           leading: const Icon(Icons.attach_file_rounded, size: 18),
@@ -337,24 +296,23 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: _isSaving ? null : () => Navigator.pop(context),
+                      onPressed: isSaving ? null : () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: _isSaving || _isUploading ? null : _submit,
+                      onPressed: isSaving || isUploading ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
                         foregroundColor: theme.colorScheme.onPrimary,
                       ),
-                      child: _isSaving
+                      child: isSaving
                           ? const SizedBox(
                               height: 18,
                               width: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation(Colors.white),
-                                // Wait, valueColor: AlwaysStoppedAnimation(Colors.white) is fine in Flutter
                               ),
                             )
                           : const Text('Create Task'),

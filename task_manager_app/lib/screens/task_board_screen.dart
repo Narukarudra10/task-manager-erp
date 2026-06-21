@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/task_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/task_provider.dart';
+import '../providers/group_provider.dart';
 import 'task_detail_dialog.dart';
 import 'add_task_dialog.dart';
 import 'settings_screen.dart';
@@ -20,19 +21,24 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Timer? _pollingTimer;
-  String _filterMode = 'all';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TaskProvider>().loadTasks();
+      context.read<GroupProvider>().loadGroups();
+      context.read<GroupProvider>().loadPendingInvites();
     });
-    // Poll the API every 2 seconds to fetch updates in real-time
-    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    // Poll the API every 3 seconds to fetch updates in real-time
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted) {
-        context.read<TaskProvider>().loadTasks(quiet: true);
+        final groupProvider = context.read<GroupProvider>();
+        if (groupProvider.groups.isNotEmpty) {
+          context.read<TaskProvider>().loadTasks(quiet: true);
+        }
+        groupProvider.loadGroups(quiet: true);
+        groupProvider.loadPendingInvites();
       }
     });
   }
@@ -93,11 +99,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     showDialog(
       context: context,
       builder: (context) => TaskDetailDialog(
-        task: task,
-        onStatusChange: (newStatus) => _updateStatus(task, newStatus),
-        onDelete: () => _deleteTask(task),
-        onTaskUpdated: () =>
-            context.read<TaskProvider>().loadTasks(quiet: true),
+        taskId: task.id,
       ),
     );
   }
@@ -129,12 +131,17 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     final initials = _getInitials(userName);
     final currentUserId = user?['id'] as String?;
 
+    final groupProvider = context.watch<GroupProvider>();
+    final groups = groupProvider.groups;
+    final activeGroup = groupProvider.activeGroup;
+    final isGroupLoading = groupProvider.isLoading;
+
     final taskProvider = context.watch<TaskProvider>();
     final tasks = taskProvider.tasks;
-    final isLoading = taskProvider.isLoading;
-    final errorMessage = taskProvider.errorMessage;
+    final isLoading = taskProvider.isLoading || isGroupLoading;
+    final errorMessage = taskProvider.errorMessage ?? groupProvider.errorMessage;
 
-    final filteredTasks = _filterMode == 'my'
+    final filteredTasks = taskProvider.filterMode == 'my'
         ? tasks.where((t) => t.assignedTo == currentUserId).toList()
         : tasks;
 
@@ -167,12 +174,16 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () => context.read<TaskProvider>().loadTasks(),
+                  onPressed: () {
+                    context.read<GroupProvider>().loadGroups();
+                  },
                   child: const Text('Retry'),
                 ),
               ],
             ),
           )
+        : groups.isEmpty
+        ? _buildOnboardingScreen()
         : LayoutBuilder(
             builder: (context, constraints) {
               if (constraints.maxWidth > 800) {
@@ -297,6 +308,52 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
           ],
         ),
         actions: [
+          // Workspace Selector Dropdown
+          if (groups.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<dynamic>(
+                  value: activeGroup != null && groups.any((g) => g['id'] == activeGroup['id'])
+                      ? groups.firstWhere((g) => g['id'] == activeGroup['id'])
+                      : null,
+                  icon: const Icon(
+                    Icons.workspace_premium_rounded,
+                    size: 16,
+                    color: Colors.white70,
+                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  dropdownColor: isDark
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFF0067A3),
+                  borderRadius: BorderRadius.circular(12),
+                  hint: const Text('Select Workspace', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  items: groups.map<DropdownMenuItem<dynamic>>((g) {
+                    return DropdownMenuItem<dynamic>(
+                      value: g,
+                      child: Text(
+                        g['name'] as String,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      groupProvider.setActiveGroup(val);
+                    }
+                  },
+                ),
+              ),
+            ),
+          const SizedBox(width: 8),
           // Filter Mode Dropdown
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -307,7 +364,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: _filterMode,
+                value: taskProvider.filterMode,
                 icon: const Icon(
                   Icons.keyboard_arrow_down_rounded,
                   size: 18,
@@ -358,9 +415,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                 ],
                 onChanged: (val) {
                   if (val != null) {
-                    setState(() {
-                      _filterMode = val;
-                    });
+                    taskProvider.setFilterMode(val);
                   }
                 },
               ),
@@ -1040,5 +1095,328 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
         child: card,
       );
     }
+  }
+
+  // Beautiful onboarding view when user belongs to no groups/workspaces
+  Widget _buildOnboardingScreen() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final groupProvider = context.watch<GroupProvider>();
+    final pendingInvites = groupProvider.pendingInvites;
+
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 600),
+        padding: const EdgeInsets.all(24.0),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Welcome Header
+              Icon(
+                Icons.workspace_premium_rounded,
+                size: 64,
+                color: isDark ? Colors.amber.shade400 : Colors.amber.shade200,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Welcome to TaskFlow Workspaces',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Workspaces secure your projects and keep tasks separate. To start adding cards, please create a new workspace or accept an invitation below.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white70,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Create Workspace Card
+              Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.add_business_rounded,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Create a New Workspace',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Start a workspace and invite team members to collaborate in real-time.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: _showCreateGroupDialog,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Create Workspace'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Invitations Section
+              if (pendingInvites.isNotEmpty) ...[
+                Text(
+                  'Pending Invitations (${pendingInvites.length})',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: pendingInvites.length,
+                  itemBuilder: (context, index) {
+                    final invite = pendingInvites[index];
+                    return Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              invite['groupName'] as String,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            if (invite['groupDescription'] != null) ...[
+                              Text(
+                                invite['groupDescription'] as String,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: isDark ? Colors.white70 : Colors.black54,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            Text(
+                              'Invited by: ${invite['invitedByName']} (${invite['invitedByEmail']})',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isDark ? Colors.white70 : Colors.black45,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () async {
+                                    try {
+                                      await context.read<GroupProvider>().declineInvite(invite['id'] as String);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Invitation declined')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: theme.colorScheme.error,
+                                  ),
+                                  child: const Text('Decline'),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    try {
+                                      await context.read<GroupProvider>().acceptInvite(invite['id'] as String);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Workspace joined successfully!')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  child: const Text('Join Workspace'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ] else ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.mark_email_read_outlined, color: Colors.white70),
+                      SizedBox(width: 12),
+                      Text(
+                        'No pending invitations found',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCreateGroupDialog() {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final isSavingNotifier = ValueNotifier<bool>(false);
+
+    showDialog(
+      context: context,
+      builder: (context) => ValueListenableBuilder<bool>(
+        valueListenable: isSavingNotifier,
+        builder: (context, isSaving, child) => AlertDialog(
+          title: const Text('Create New Workspace'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Workspace Name',
+                    hintText: 'e.g. Engineering Team',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter a name';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: descController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      isSavingNotifier.value = true;
+                      try {
+                        await context.read<GroupProvider>().createGroup(
+                              name: nameController.text.trim(),
+                              description: descController.text.trim().isEmpty
+                                  ? null
+                                  : descController.text.trim(),
+                            );
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Workspace created successfully!')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      } finally {
+                        isSavingNotifier.value = false;
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    ).then((_) {
+      nameController.dispose();
+      descController.dispose();
+      isSavingNotifier.dispose();
+    });
   }
 }

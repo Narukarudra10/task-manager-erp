@@ -19,8 +19,14 @@ class _SignInScreenState extends State<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
-  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().clearAuthError();
+    });
+  }
 
   @override
   void dispose() {
@@ -32,26 +38,13 @@ class _SignInScreenState extends State<SignInScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
       await context.read<AuthProvider>().signIn(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    } catch (_) {
+      // AuthProvider captures error into its authError field.
     }
   }
 
@@ -59,6 +52,9 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final authProvider = context.watch<AuthProvider>();
+    final isLoading = authProvider.isLoading;
+    final errorMessage = authProvider.authError;
 
     return Scaffold(
       body: Container(
@@ -155,7 +151,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           const SizedBox(height: 28),
 
                           // Error message if any
-                          if (_errorMessage != null) ...[
+                          if (errorMessage != null) ...[
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -164,7 +160,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                 border: Border.all(color: theme.colorScheme.error.withOpacity(0.2)),
                               ),
                               child: Text(
-                                _errorMessage!,
+                                errorMessage,
                                 style: TextStyle(
                                   color: theme.colorScheme.onErrorContainer,
                                   fontSize: 13,
@@ -182,12 +178,13 @@ class _SignInScreenState extends State<SignInScreen> {
                               labelText: 'Email Address',
                               prefixIcon: const Icon(Icons.email_outlined),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                                  borderRadius: BorderRadius.circular(12)),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300,
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.1)
+                                      : Colors.grey.shade300,
                                 ),
                               ),
                             ),
@@ -211,12 +208,13 @@ class _SignInScreenState extends State<SignInScreen> {
                               labelText: 'Password',
                               prefixIcon: const Icon(Icons.lock_outlined),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                                  borderRadius: BorderRadius.circular(12)),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300,
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.1)
+                                      : Colors.grey.shade300,
                                 ),
                               ),
                             ),
@@ -234,7 +232,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
                           // Submit Button
                           ElevatedButton(
-                            onPressed: _isLoading ? null : _submit,
+                            onPressed: isLoading ? null : _submit,
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               backgroundColor: theme.colorScheme.primary,
@@ -244,13 +242,14 @@ class _SignInScreenState extends State<SignInScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: _isLoading
+                            child: isLoading
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                                      valueColor:
+                                          AlwaysStoppedAnimation(Colors.white),
                                     ),
                                   )
                                 : const Text(
@@ -265,7 +264,12 @@ class _SignInScreenState extends State<SignInScreen> {
 
                           // Navigate to Register
                           TextButton(
-                            onPressed: _isLoading ? null : widget.onNavigateToSignUp,
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    context.read<AuthProvider>().clearAuthError();
+                                    widget.onNavigateToSignUp();
+                                  },
                             child: Text(
                               "Don't have an account? Sign Up",
                               style: TextStyle(
@@ -305,8 +309,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
-  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().clearAuthError();
+    });
+  }
 
   @override
   void dispose() {
@@ -319,27 +329,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
       await context.read<AuthProvider>().signUp(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    } catch (_) {
+      // AuthProvider captures error into its authError field.
     }
   }
 
@@ -347,6 +344,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final authProvider = context.watch<AuthProvider>();
+    final isLoading = authProvider.isLoading;
+    final errorMessage = authProvider.authError;
 
     return Scaffold(
       body: Container(
@@ -440,10 +440,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Registration is invite-only. You must have a pending invitation sent to your email to sign up.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: isDark
+                                  ? Colors.amber.shade400
+                                  : Colors.amber.shade800,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                           const SizedBox(height: 28),
 
                           // Error message if any
-                          if (_errorMessage != null) ...[
+                          if (errorMessage != null) ...[
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -452,7 +463,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 border: Border.all(color: theme.colorScheme.error.withOpacity(0.2)),
                               ),
                               child: Text(
-                                _errorMessage!,
+                                errorMessage,
                                 style: TextStyle(
                                   color: theme.colorScheme.onErrorContainer,
                                   fontSize: 13,
@@ -469,12 +480,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               labelText: 'Full Name',
                               prefixIcon: const Icon(Icons.person_outline),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                                  borderRadius: BorderRadius.circular(12)),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300,
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.1)
+                                      : Colors.grey.shade300,
                                 ),
                               ),
                             ),
@@ -495,12 +507,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               labelText: 'Email Address',
                               prefixIcon: const Icon(Icons.email_outlined),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                                  borderRadius: BorderRadius.circular(12)),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300,
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.1)
+                                      : Colors.grey.shade300,
                                 ),
                               ),
                             ),
@@ -524,12 +537,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               labelText: 'Password',
                               prefixIcon: const Icon(Icons.lock_outlined),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                                  borderRadius: BorderRadius.circular(12)),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300,
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.1)
+                                      : Colors.grey.shade300,
                                 ),
                               ),
                             ),
@@ -547,7 +561,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                           // Submit Button
                           ElevatedButton(
-                            onPressed: _isLoading ? null : _submit,
+                            onPressed: isLoading ? null : _submit,
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               backgroundColor: theme.colorScheme.primary,
@@ -557,13 +571,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: _isLoading
+                            child: isLoading
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                                      valueColor:
+                                          AlwaysStoppedAnimation(Colors.white),
                                     ),
                                   )
                                 : const Text(
@@ -578,7 +593,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                           // Navigate to Login
                           TextButton(
-                            onPressed: _isLoading ? null : widget.onNavigateToSignIn,
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    context.read<AuthProvider>().clearAuthError();
+                                    widget.onNavigateToSignIn();
+                                  },
                             child: Text(
                               "Already have an account? Sign In",
                               style: TextStyle(

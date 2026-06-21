@@ -5,6 +5,9 @@ import '../services/api_service.dart';
 class AuthProvider extends ChangeNotifier {
   bool _isLoading = true;
   final ApiService _apiService = ApiService();
+  bool _isProfileSaving = false;
+  bool _isPasswordSaving = false;
+  String? _authError;
 
   AuthProvider() {
     checkSession();
@@ -13,6 +16,14 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _apiService.isAuthenticated;
   Map<String, dynamic>? get currentUser => _apiService.currentUser;
+  bool get isProfileSaving => _isProfileSaving;
+  bool get isPasswordSaving => _isPasswordSaving;
+  String? get authError => _authError;
+
+  void clearAuthError() {
+    _authError = null;
+    notifyListeners();
+  }
 
   Future<void> checkSession() async {
     _isLoading = true;
@@ -70,6 +81,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signIn({required String email, required String password}) async {
     _isLoading = true;
+    _authError = null;
     notifyListeners();
     try {
       await _apiService.signIn(email: email, password: password);
@@ -78,6 +90,9 @@ class AuthProvider extends ChangeNotifier {
       if (!kIsWeb) {
         await box.put('session_cookie', _apiService.sessionCookie);
       }
+    } catch (e) {
+      _authError = e.toString().replaceAll('Exception: ', '');
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -90,6 +105,7 @@ class AuthProvider extends ChangeNotifier {
     required String password,
   }) async {
     _isLoading = true;
+    _authError = null;
     notifyListeners();
     try {
       await _apiService.signUp(name: name, email: email, password: password);
@@ -98,6 +114,9 @@ class AuthProvider extends ChangeNotifier {
       if (!kIsWeb) {
         await box.put('session_cookie', _apiService.sessionCookie);
       }
+    } catch (e) {
+      _authError = e.toString().replaceAll('Exception: ', '');
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -141,17 +160,30 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> updateProfile({required String name}) async {
-    await _apiService.updateProfile(name: name);
+    _isProfileSaving = true;
     notifyListeners();
+    try {
+      await _apiService.updateProfile(name: name);
+    } finally {
+      _isProfileSaving = false;
+      notifyListeners();
+    }
   }
 
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
   }) async {
-    await _apiService.changePassword(
-      currentPassword: currentPassword,
-      newPassword: newPassword,
-    );
+    _isPasswordSaving = true;
+    notifyListeners();
+    try {
+      await _apiService.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+    } finally {
+      _isPasswordSaving = false;
+      notifyListeners();
+    }
   }
 }
