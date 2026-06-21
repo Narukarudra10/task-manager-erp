@@ -76,7 +76,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
 
-    if (authProvider.isLoading) {
+    if (authProvider.isCheckingSession) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),

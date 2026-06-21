@@ -24,22 +24,26 @@ class GroupProvider extends ChangeNotifier {
   bool get isLoadingMembers => _isLoadingMembers;
   bool get isSendingInvite => _isSendingInvite;
 
-  Future<void> loadActiveGroupMembers() async {
+  Future<void> loadActiveGroupMembers({bool quiet = false}) async {
     if (_activeGroup == null) {
       _activeGroupMembers = [];
       _isLoadingMembers = false;
       notifyListeners();
       return;
     }
-    _isLoadingMembers = true;
-    notifyListeners();
+    if (!quiet || _activeGroupMembers.isEmpty) {
+      _isLoadingMembers = true;
+      notifyListeners();
+    }
     try {
       final list = await _apiService.fetchGroupMembers(_activeGroup['id'] as int);
       _activeGroupMembers = list;
     } catch (e) {
       _activeGroupMembers = [];
     } finally {
-      _isLoadingMembers = false;
+      if (!quiet || _isLoadingMembers) {
+        _isLoadingMembers = false;
+      }
       notifyListeners();
     }
   }
@@ -60,17 +64,17 @@ class GroupProvider extends ChangeNotifier {
       if (_groups.isNotEmpty) {
         if (_activeGroup == null) {
           _activeGroup = _groups.first;
-          await loadActiveGroupMembers();
+          await loadActiveGroupMembers(quiet: quiet);
         } else {
           final stillExists = _groups.any((g) => g['id'] == _activeGroup['id']);
           if (!stillExists) {
             _activeGroup = _groups.first;
-            await loadActiveGroupMembers();
+            await loadActiveGroupMembers(quiet: quiet);
           } else {
             // Update active group details (e.g. role, name)
             _activeGroup = _groups.firstWhere((g) => g['id'] == _activeGroup['id']);
             // Refresh members list silently or on changes
-            await loadActiveGroupMembers();
+            await loadActiveGroupMembers(quiet: quiet);
           }
         }
       } else {
@@ -91,7 +95,7 @@ class GroupProvider extends ChangeNotifier {
 
   void setActiveGroup(dynamic group) {
     _activeGroup = group;
-    loadActiveGroupMembers();
+    loadActiveGroupMembers(quiet: false);
     notifyListeners();
   }
 
@@ -105,7 +109,7 @@ class GroupProvider extends ChangeNotifier {
       await loadGroups(quiet: true);
       // Select the newly created group
       _activeGroup = _groups.firstWhere((g) => g['id'] == newGroup['id'], orElse: () => _groups.isNotEmpty ? _groups.first : null);
-      await loadActiveGroupMembers();
+      await loadActiveGroupMembers(quiet: false);
       _errorMessage = null;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');

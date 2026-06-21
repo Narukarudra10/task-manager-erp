@@ -3,7 +3,8 @@ import 'package:hive/hive.dart';
 import '../services/api_service.dart';
 
 class AuthProvider extends ChangeNotifier {
-  bool _isLoading = true;
+  bool _isLoading = false;
+  bool _isCheckingSession = true;
   final ApiService _apiService = ApiService();
   bool _isProfileSaving = false;
   bool _isPasswordSaving = false;
@@ -14,6 +15,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   bool get isLoading => _isLoading;
+  bool get isCheckingSession => _isCheckingSession;
   bool get isAuthenticated => _apiService.isAuthenticated;
   Map<String, dynamic>? get currentUser => _apiService.currentUser;
   bool get isProfileSaving => _isProfileSaving;
@@ -26,6 +28,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> checkSession() async {
+    _isCheckingSession = true;
     _isLoading = true;
     notifyListeners();
 
@@ -75,6 +78,7 @@ class AuthProvider extends ChangeNotifier {
       }
     } finally {
       _isLoading = false;
+      _isCheckingSession = false;
       notifyListeners();
     }
   }
