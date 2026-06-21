@@ -3,7 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { bearer } from "better-auth/plugins"
 import { db } from "./db"
 import * as schema from "./db/schema"
-import { createAuthMiddleware } from "better-auth/api"
+import { createAuthMiddleware, APIError } from "better-auth/api"
 import { eq, and } from "drizzle-orm"
 
 const getBaseURL = () => {
@@ -63,7 +63,9 @@ export const auth = betterAuth({
         })
 
         if (!invite) {
-          throw new Error("Registration is invite-only. You must be invited to a group before you can register.")
+          throw new APIError("BAD_REQUEST", {
+            message: "Registration is invite-only. You must be invited to a group before you can register."
+          })
         }
       }
     }),

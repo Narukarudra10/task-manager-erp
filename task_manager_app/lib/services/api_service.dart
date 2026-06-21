@@ -148,8 +148,16 @@ class ApiService {
       _currentUser = data['user'];
       return data;
     } else {
-      final errorData = jsonDecode(response.body);
-      throw Exception(errorData['message'] ?? 'Sign up failed');
+      String errorMessage = 'Sign up failed';
+      try {
+        final errorData = jsonDecode(response.body);
+        errorMessage = (errorData['message'] as String?) ?? errorMessage;
+      } on FormatException {
+        errorMessage = response.body.isNotEmpty
+            ? response.body
+            : 'Sign up failed (status ${response.statusCode})';
+      }
+      throw Exception(errorMessage);
     }
   }
 
@@ -172,8 +180,16 @@ class ApiService {
       _currentUser = data['user'];
       return data;
     } else {
-      final errorData = jsonDecode(response.body);
-      throw Exception(errorData['message'] ?? 'Sign in failed');
+      String errorMessage = 'Sign in failed';
+      try {
+        final errorData = jsonDecode(response.body);
+        errorMessage = (errorData['message'] as String?) ?? errorMessage;
+      } on FormatException {
+        errorMessage = response.body.isNotEmpty
+            ? response.body
+            : 'Sign in failed (status ${response.statusCode})';
+      }
+      throw Exception(errorMessage);
     }
   }
 
@@ -198,8 +214,16 @@ class ApiService {
       );
 
       if (response.statusCode != 200) {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['error'] ?? 'Failed to delete account');
+        String errorMessage = 'Failed to delete account';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = (errorData['error'] as String?) ?? errorMessage;
+        } on FormatException {
+          errorMessage = response.body.isNotEmpty
+              ? response.body
+              : 'Failed to delete account (status ${response.statusCode})';
+        }
+        throw Exception(errorMessage);
       }
     } finally {
       _sessionCookie = null;
