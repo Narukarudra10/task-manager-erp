@@ -82,5 +82,21 @@
   "overrides": {
     "lodash": "^4.17.24",
     "postcss": "^8.5.10"
-  }
+  },
+  "description": "This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Narukarudra10/task-manager-erp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Narukarudra10/task-manager-erp/issues"
+  },
+  "homepage": "https://github.com/Narukarudra10/task-manager-erp#readme"
 }

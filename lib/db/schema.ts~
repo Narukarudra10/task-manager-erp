@@ -1,30 +1,30 @@
-import { pgTable, text, integer, timestamp, boolean, serial, uuid } from "drizzle-orm/pg-core"
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
 
 // Better Auth tables
-export const user = pgTable("user", {
+export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("emailVerified").notNull().default(false),
+  emailVerified: integer("emailVerified", { mode: "boolean" }).notNull().default(false),
   image: text("image"),
-  createdAt: timestamp("createdAt", { mode: "date" })
+  createdAt: integer("createdAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
+    .$defaultFn(() => new Date()),
 })
 
-export const session = pgTable("session", {
+export const session = sqliteTable("session", {
   id: text("id").primaryKey(),
-  expiresAt: timestamp("expiresAt", { mode: "date" }).notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
   token: text("token").notNull().unique(),
-  createdAt: timestamp("createdAt", { mode: "date" })
+  createdAt: integer("createdAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
+    .$defaultFn(() => new Date()),
   ipAddress: text("ipAddress"),
   userAgent: text("userAgent"),
   userId: text("userId")
@@ -32,7 +32,7 @@ export const session = pgTable("session", {
     .references(() => user.id, { onDelete: "cascade" }),
 })
 
-export const account = pgTable("account", {
+export const account = sqliteTable("account", {
   id: text("id").primaryKey(),
   accountId: text("accountId").notNull(),
   providerId: text("providerId").notNull(),
@@ -42,45 +42,45 @@ export const account = pgTable("account", {
   accessToken: text("accessToken"),
   refreshToken: text("refreshToken"),
   idToken: text("idToken"),
-  accessTokenExpiresAt: timestamp("accessTokenExpiresAt", { mode: "date" }),
-  refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt", { mode: "date" }),
+  accessTokenExpiresAt: integer("accessTokenExpiresAt", { mode: "timestamp" }),
+  refreshTokenExpiresAt: integer("refreshTokenExpiresAt", { mode: "timestamp" }),
   scope: text("scope"),
   password: text("password"),
-  createdAt: timestamp("createdAt", { mode: "date" })
+  createdAt: integer("createdAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
+    .$defaultFn(() => new Date()),
 })
 
-export const verification = pgTable("verification", {
+export const verification = sqliteTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: timestamp("expiresAt", { mode: "date" }).notNull(),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 })
 
 // App tables
-export const groups = pgTable("groups", {
-  id: serial("id").primaryKey(),
+export const groups = sqliteTable("groups", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   description: text("description"),
   createdById: text("createdById")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  createdAt: timestamp("createdAt", { mode: "date" })
+  createdAt: integer("createdAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
+    .$defaultFn(() => new Date()),
 })
 
-export const groupMembers = pgTable("group_members", {
-  id: serial("id").primaryKey(),
+export const groupMembers = sqliteTable("group_members", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   groupId: integer("groupId")
     .notNull()
     .references(() => groups.id, { onDelete: "cascade" }),
@@ -88,12 +88,12 @@ export const groupMembers = pgTable("group_members", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   role: text("role").notNull().default("member"), // 'admin' or 'member'
-  joinedAt: timestamp("joinedAt", { mode: "date" })
+  joinedAt: integer("joinedAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
+    .$defaultFn(() => new Date()),
 })
 
-export const groupInvites = pgTable("group_invites", {
+export const groupInvites = sqliteTable("group_invites", {
   id: text("id").primaryKey(), // Invite token/UUID
   groupId: integer("groupId")
     .notNull()
@@ -104,14 +104,14 @@ export const groupInvites = pgTable("group_invites", {
     .references(() => user.id, { onDelete: "cascade" }),
   role: text("role").notNull().default("member"),
   status: text("status").notNull().default("pending"), // 'pending', 'accepted', 'declined'
-  createdAt: timestamp("createdAt", { mode: "date" })
+  createdAt: integer("createdAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
-  expiresAt: timestamp("expiresAt", { mode: "date" }).notNull(),
+    .$defaultFn(() => new Date()),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
 })
 
-export const tasks = pgTable("tasks", {
-  id: serial("id").primaryKey(),
+export const tasks = sqliteTable("tasks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   groupId: integer("groupId").references(() => groups.id, { onDelete: "cascade" }),
   userId: text("userId").notNull(),
   assignedTo: text("assignedTo").references(() => user.id, { onDelete: "set null" }),
@@ -119,16 +119,16 @@ export const tasks = pgTable("tasks", {
   description: text("description"),
   status: text("status").notNull().default("todo"),
   priority: text("priority").notNull().default("medium"),
-  createdAt: timestamp("createdAt", { mode: "date" })
+  createdAt: integer("createdAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
+    .$defaultFn(() => new Date()),
 })
 
-export const taskAttachments = pgTable("task_attachments", {
-  id: serial("id").primaryKey(),
+export const taskAttachments = sqliteTable("task_attachments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   taskId: integer("taskId")
     .notNull()
     .references(() => tasks.id, { onDelete: "cascade" }),
@@ -136,9 +136,9 @@ export const taskAttachments = pgTable("task_attachments", {
   fileUrl: text("fileUrl").notNull(),
   fileType: text("fileType").notNull(),
   fileSize: integer("fileSize").notNull(),
-  createdAt: timestamp("createdAt", { mode: "date" })
+  createdAt: integer("createdAt", { mode: "timestamp" })
     .notNull()
-    .defaultNow(),
+    .$defaultFn(() => new Date()),
 })
 
 export type Group = typeof groups.$inferSelect
