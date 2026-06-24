@@ -1,7 +1,8 @@
 import { betterAuth } from "better-auth"
+import type { BetterAuthOptions } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { bearer } from "better-auth/plugins"
-import { db } from "./db"
+import { getDb } from "./db"
 import * as schema from "./db/schema"
 import { eq, and } from "drizzle-orm"
 
@@ -27,60 +28,74 @@ const getTrustedOrigins = () => {
   return origins
 }
 
-export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema: schema,
-  }),
-  secret: process.env.BETTER_AUTH_SECRET || "f3b9c2a8e10d1c7d2e4f5a6b7c8d9e0f",
-  baseURL: getBaseURL(),
-  trustedOrigins: getTrustedOrigins(),
-  emailAndPassword: {
-    enabled: true,
-  },
-  plugins: [
-    bearer(),
-  ],
+function createAuth() {
+  return betterAuth({
+    database: drizzleAdapter(getDb(), {
+      provider: "pg",
+      schema: schema,
+    }),
+    secret: process.env.BETTER_AUTH_SECRET || "f3b9c2a8e10d1c7d2e4f5a6b7c8d9e0f",
+    baseURL: getBaseURL(),
+    trustedOrigins: getTrustedOrigins(),
+    emailAndPassword: {
+      enabled: true,
+    },
+    plugins: [
+      bearer(),
+    ],
 
-  databaseHooks: {
-    user: {
-      create: {
-        after: async (user) => {
-          // Check for pending invites for this email
-          const invites = await db
-            .select()
-            .from(schema.groupInvites)
-            .where(
-              and(
-                eq(schema.groupInvites.email, user.email.toLowerCase().trim()),
-                eq(schema.groupInvites.status, "pending")
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            const db = getDb()
+            // Check for pending invites for this email
+            const invites = await db
+              .select()
+              .from(schema.groupInvites)
+              .where(
+                and(
+                  eq(schema.groupInvites.email, user.email.toLowerCase().trim()),
+                  eq(schema.groupInvites.status, "pending")
+                )
               )
-            )
 
-          for (const invite of invites) {
-            // 1. Add user to the group
-            await db.insert(schema.groupMembers).values({
-              groupId: invite.groupId,
-              userId: user.id,
-              role: invite.role,
-            })
+            for (const invite of invites) {
+              // 1. Add user to the group
+              await db.insert(schema.groupMembers).values({
+                groupId: invite.groupId,
+                userId: user.id,
+                role: invite.role,
+              })
 
-            // 2. Mark invite as accepted
-            await db
-              .update(schema.groupInvites)
-              .set({ status: "accepted" })
-              .where(eq(schema.groupInvites.id, invite.id))
-          }
+              // 2. Mark invite as accepted
+              await db
+                .update(schema.groupInvites)
+                .set({ status: "accepted" })
+                .where(eq(schema.groupInvites.id, invite.id))
+            }
+          },
         },
       },
     },
-  },
-  ...(process.env.NODE_ENV === "development" && {
-    advanced: {
-      defaultCookieAttributes: {
-        sameSite: "none",
-        secure: true,
+    ...(process.env.NODE_ENV === "development" && {
+      advanced: {
+        defaultCookieAttributes: {
+          sameSite: "none",
+          secure: true,
+        },
       },
-    },
-  }),
+    }),
+  })
+}
+
+let _auth: ReturnType<typeof createAuth> | null = null
+
+export const auth = new Proxy({} as ReturnType<typeof createAuth>, {
+  get(_target, prop) {
+    if (!_auth) {
+      _auth = createAuth()
+    }
+    return (_auth as any)[prop]
+  },
 })

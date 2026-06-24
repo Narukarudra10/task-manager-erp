@@ -1,19 +1,38 @@
 import { drizzle } from "drizzle-orm/postgres-js"
+import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 import * as schema from "./schema"
 
-// Get connection string from environment
-const connectionString = process.env.DATABASE_URL || "postgres://localhost:5432/postgres"
+type Schema = typeof schema
 
-// Basic validation to prevent build-time crashes if URL is momentarily invalid
-const isValidUrl = (url: string) => {
-  return url.startsWith('postgres://') || url.startsWith('postgresql://');
+let _client: ReturnType<typeof postgres> | null = null
+let _db: PostgresJsDatabase<Schema> | null = null
+
+function getClient(): ReturnType<typeof postgres> {
+  if (!_client) {
+    const connectionString = process.env.DATABASE_URL
+    if (!connectionString) {
+      throw new Error(
+        "DATABASE_URL environment variable is not set. " +
+        "Please configure it before starting the application."
+      )
+    }
+    _client = postgres(connectionString)
+  }
+  return _client
 }
 
-// Fallback for build-time if the URL is not yet a valid Postgres URL
-const finalUrl = isValidUrl(connectionString)
-  ? connectionString
-  : "postgres://localhost:5432/postgres"
+export function getDb(): PostgresJsDatabase<Schema> {
+  if (!_db) {
+    _db = drizzle(getClient(), { schema })
+  }
+  return _db
+}
 
-export const client = postgres(finalUrl)
-export const db = drizzle(client, { schema })
+// Lazy proxy so existing `import { db } from '@/lib/db'` call sites continue
+// to work without modification — the connection is only opened on first use.
+export const db = new Proxy({} as PostgresJsDatabase<Schema>, {
+  get(_target, prop) {
+    return (getDb() as any)[prop]
+  },
+})
