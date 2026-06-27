@@ -103,10 +103,30 @@ class MainNavigationWrapper extends StatefulWidget {
 
 class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
   bool _showSignUp = false;
+  String? _resetToken;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDeepLink();
+  }
+
+  void _checkDeepLink() {
+    final uri = Uri.base;
+    if (uri.queryParameters.containsKey('reset_token')) {
+      setState(() {
+        _resetToken = uri.queryParameters['reset_token'];
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+
+    if (_resetToken != null) {
+      return ResetPasswordScreen(token: _resetToken!);
+    }
 
     if (authProvider.isCheckingSession) {
       return const Scaffold(

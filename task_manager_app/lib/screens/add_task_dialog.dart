@@ -18,6 +18,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final List<String> _selectedAssigneeIds = [];
 
   InputDecoration _getInputDecoration({
     required String label,
@@ -110,7 +111,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
         description: _descriptionController.text.trim(),
         priority: taskProvider.createPriority,
         status: widget.initialStatus,
-        assignedTo: taskProvider.createAssignedUserId,
+        assignees: _selectedAssigneeIds,
         attachments: taskProvider.createAttachments,
       );
       if (mounted) {
@@ -119,16 +120,26 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create task: $e')),
+          SnackBar(content: Text('Failed to create task: \$e')),
         );
       }
     }
   }
 
   String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024) return '\$bytes B';
+    if (bytes < 1024 * 1024) return '\${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '\${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'U';
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return 'U';
+    if (parts.length == 1) {
+      return parts[0][0].toUpperCase();
+    }
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   @override
@@ -142,7 +153,6 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
     final isUploading = taskProvider.isCreateUploading;
     final attachments = taskProvider.createAttachments;
     final priority = taskProvider.createPriority;
-    final assignedUserId = taskProvider.createAssignedUserId;
     final members = groupProvider.activeGroupMembers;
 
     return Dialog(
@@ -243,31 +253,52 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Assign To Dropdown
-                DropdownButtonFormField<String?>(
-                  value: assignedUserId,
-                  style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
-                  dropdownColor: isDark ? const Color(0xFF161A2B) : Colors.white,
-                  decoration: _getInputDecoration(
-                    label: 'Assign To (optional)',
-                    hint: 'Select team member',
-                    prefixIcon: Icons.person_add_alt_1_outlined,
-                    isDark: isDark,
-                    theme: theme,
+                // Multi-Assignee Section
+                Text(
+                  'Assign To',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('Unassigned'),
-                    ),
-                    ...members.map((u) => DropdownMenuItem<String?>(
-                          value: u['id'] as String,
-                          child: Text(u['name'] as String),
-                        )),
-                  ],
-                  onChanged: (value) {
-                    taskProvider.setCreateAssignedUserId(value);
-                  },
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: members.map((member) {
+                    final userId = member['id'] as String;
+                    final isSelected = _selectedAssigneeIds.contains(userId);
+                    return FilterChip(
+                      avatar: CircleAvatar(
+                        radius: 12,
+                        backgroundColor: isSelected ? Colors.white : theme.colorScheme.primary.withOpacity(0.2),
+                        child: Text(
+                          _getInitials(member['name'] as String),
+                          style: TextStyle(
+                            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      label: Text(member['name'] as String, style: const TextStyle(fontSize: 12)),
+                      selected: isSelected,
+                      onSelected: (bool selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedAssigneeIds.add(userId);
+                          } else {
+                            _selectedAssigneeIds.remove(userId);
+                          }
+                        });
+                      },
+                      selectedColor: theme.colorScheme.primary,
+                      checkmarkColor: Colors.white,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                      ),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 24),
 

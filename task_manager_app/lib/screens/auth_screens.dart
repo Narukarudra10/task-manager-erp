@@ -48,6 +48,66 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
+  void _showForgotPasswordDialog() {
+    final emailController = TextEditingController(text: _emailController.text);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Forgot Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Enter your email address and we\'ll send you a link to reset your password.',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email Address',
+                  hintText: 'Enter your email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final email = emailController.text.trim();
+                if (email.isEmpty) return;
+                
+                try {
+                  await context.read<AuthProvider>().forgotPassword(email: email);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Password reset email sent!')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Send Reset Link'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -236,9 +296,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () {
-                                // Forgot password implementation placeholder
-                              },
+                              onPressed: _showForgotPasswordDialog,
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
@@ -269,7 +327,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           const SizedBox(height: 20),
 
                           // Social Login Placeholders
-                          _buildSocialRow(isDark),
+                          _buildSocialRow(isDark, context),
                           const SizedBox(height: 24),
 
                           // Navigation to Register Screen
@@ -577,7 +635,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           const SizedBox(height: 20),
 
                           // Social Login Placeholders
-                          _buildSocialRow(isDark),
+                          _buildSocialRow(isDark, context),
                           const SizedBox(height: 24),
 
                           // Navigation to Login Screen
@@ -615,6 +673,140 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ResetPasswordScreen extends StatefulWidget {
+  final String token;
+
+  const ResetPasswordScreen({
+    super.key,
+    required this.token,
+  });
+
+  @override
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+}
+
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      await context.read<AuthProvider>().resetPassword(
+        token: widget.token,
+        newPassword: _passwordController.text,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password reset successful! Please sign in.')),
+        );
+        // Navigate back to sign in
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const SignInScreen(onNavigateToSignUp: _dummyNavigate)),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+       // Handled by AuthProvider error state
+    }
+  }
+
+  static void _dummyNavigate() {}
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final authProvider = context.watch<AuthProvider>();
+    final isLoading = authProvider.isLoading;
+    final errorMessage = authProvider.authError;
+
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 440),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E2235) : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark ? const Color(0xFF282B4F) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Reset Password',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Enter your new password below.',
+                    style: TextStyle(color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  if (errorMessage != null) ...[
+                    Text(errorMessage, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 16),
+                  ],
+                  _buildTextField(
+                    controller: _passwordController,
+                    labelText: 'New Password',
+                    hintText: 'Enter new password',
+                    prefixIcon: Icons.lock_outlined,
+                    obscureText: _obscurePassword,
+                    isDark: isDark,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                    validator: (v) => (v == null || v.length < 6) ? 'At least 6 characters' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _confirmPasswordController,
+                    labelText: 'Confirm Password',
+                    hintText: 'Re-enter new password',
+                    prefixIcon: Icons.lock_clock_outlined,
+                    obscureText: _obscurePassword,
+                    isDark: isDark,
+                    validator: (v) => v != _passwordController.text ? 'Passwords do not match' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  _buildGradientButton(
+                    text: 'Reset Password',
+                    onPressed: isLoading ? null : _submit,
+                    isLoading: isLoading,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -804,7 +996,7 @@ Widget _buildDivider(bool isDark) {
   );
 }
 
-Widget _buildSocialRow(bool isDark) {
+Widget _buildSocialRow(bool isDark, BuildContext context) {
   return Row(
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
@@ -822,7 +1014,9 @@ Widget _buildSocialRow(bool isDark) {
             ),
           ),
         ),
-        onTap: () {},
+        onTap: () {
+          context.read<AuthProvider>().signInWithGoogle();
+        },
         isDark: isDark,
       ),
       const SizedBox(width: 16),

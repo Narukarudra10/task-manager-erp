@@ -136,7 +136,7 @@ class TaskProvider extends ChangeNotifier {
     String? description,
     String priority = 'medium',
     String status = 'todo',
-    String? assignedTo,
+    List<String> assignees = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
     if (_activeGroupId == null) {
@@ -151,7 +151,7 @@ class TaskProvider extends ChangeNotifier {
         description: description,
         priority: priority,
         status: status,
-        assignedTo: assignedTo,
+        assignees: assignees,
         attachments: attachments,
       );
       await loadTasks(quiet: true);
@@ -171,13 +171,13 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateTaskAssignee(int taskId, String? assignedTo) async {
+  Future<void> updateTaskAssignees(int taskId, List<String> assignees) async {
     _isAssigning = true;
     notifyListeners();
     try {
       await _apiService.updateTask(
         id: taskId,
-        assignedTo: assignedTo ?? '',
+        assignees: assignees,
       );
       await loadTasks(quiet: true);
     } finally {

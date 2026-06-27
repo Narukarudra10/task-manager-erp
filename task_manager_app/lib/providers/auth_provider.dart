@@ -8,7 +8,9 @@ class AuthProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
   bool _isProfileSaving = false;
   bool _isPasswordSaving = false;
+  bool _isForgotPasswordLoading = false;
   String? _authError;
+  String? _forgotPasswordMessage;
 
   AuthProvider() {
     checkSession();
@@ -20,10 +22,13 @@ class AuthProvider extends ChangeNotifier {
   Map<String, dynamic>? get currentUser => _apiService.currentUser;
   bool get isProfileSaving => _isProfileSaving;
   bool get isPasswordSaving => _isPasswordSaving;
+  bool get isForgotPasswordLoading => _isForgotPasswordLoading;
   String? get authError => _authError;
+  String? get forgotPasswordMessage => _forgotPasswordMessage;
 
   void clearAuthError() {
     _authError = null;
+    _forgotPasswordMessage = null;
     notifyListeners();
   }
 
@@ -188,6 +193,60 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       _isPasswordSaving = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> forgotPassword({required String email}) async {
+    _isForgotPasswordLoading = true;
+    _authError = null;
+    _forgotPasswordMessage = null;
+    notifyListeners();
+    try {
+      await _apiService.forgotPassword(email: email);
+      _forgotPasswordMessage = 'Password reset email sent! Check your inbox.';
+    } catch (e) {
+      _authError = e.toString().replaceAll('Exception: ', '');
+      rethrow;
+    } finally {
+      _isForgotPasswordLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _authError = null;
+    notifyListeners();
+    try {
+      await _apiService.resetPassword(token: token, newPassword: newPassword);
+    } catch (e) {
+      _authError = e.toString().replaceAll('Exception: ', '');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> signInWithGoogle() async {
+    // For Flutter Web: redirect to Google OAuth URL
+    // The browser will handle the OAuth flow and redirect back to the app
+    // After redirect, checkSession() will detect the new session
+    final googleUrl = '${_apiService.baseUrl}/api/auth/sign-in/social?provider=google&callbackURL=/';
+    if (Uri.parse(googleUrl).hasScheme) {
+      // Use url_launcher to open the Google OAuth URL
+      // On web this will navigate in the same tab
+      _isLoading = true;
+      notifyListeners();
+      try {
+        await _apiService.initiateGoogleSignIn(callbackUrl: googleUrl);
+      } finally {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 }

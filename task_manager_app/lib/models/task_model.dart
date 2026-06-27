@@ -42,10 +42,49 @@ class TaskAttachment {
   }
 }
 
+class TaskAssignee {
+  final String userId;
+  final String? name;
+  final String? email;
+  final String? image;
+
+  TaskAssignee({
+    required this.userId,
+    this.name,
+    this.email,
+    this.image,
+  });
+
+  factory TaskAssignee.fromJson(Map<String, dynamic> json) {
+    return TaskAssignee(
+      userId: json['userId'] as String,
+      name: json['name'] as String?,
+      email: json['email'] as String?,
+      image: json['image'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'userId': userId,
+      'name': name,
+      'email': email,
+      'image': image,
+    };
+  }
+
+  String get initials {
+    if (name == null || name!.isEmpty) return '?';
+    final parts = name!.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+}
+
 class Task {
   final int id;
   final String userId;
-  final String? assignedTo;
   final String title;
   final String? description;
   final String status;
@@ -55,15 +94,12 @@ class Task {
   final String? creatorName;
   final String? creatorEmail;
   final String? creatorImage;
-  final String? assigneeName;
-  final String? assigneeEmail;
-  final String? assigneeImage;
+  final List<TaskAssignee> assignees;
   final List<TaskAttachment> attachments;
 
   Task({
     required this.id,
     required this.userId,
-    this.assignedTo,
     required this.title,
     this.description,
     required this.status,
@@ -73,21 +109,43 @@ class Task {
     this.creatorName,
     this.creatorEmail,
     this.creatorImage,
-    this.assigneeName,
-    this.assigneeEmail,
-    this.assigneeImage,
+    required this.assignees,
     required this.attachments,
   });
 
   factory Task.fromJson(Map<String, dynamic> json) {
-    var list = json['attachments'] as List? ?? [];
-    List<TaskAttachment> attachmentList =
-        list.map((i) => TaskAttachment.fromJson(i as Map<String, dynamic>)).toList();
+    var attachmentList = <TaskAttachment>[];
+    final rawAttachments = json['attachments'] as List?;
+    if (rawAttachments != null) {
+      attachmentList = rawAttachments
+          .map((i) => TaskAttachment.fromJson(i as Map<String, dynamic>))
+          .toList();
+    }
+
+    var assigneeList = <TaskAssignee>[];
+    final rawAssignees = json['assignees'] as List?;
+    if (rawAssignees != null) {
+      assigneeList = rawAssignees
+          .map((i) => TaskAssignee.fromJson(i as Map<String, dynamic>))
+          .toList();
+    } else {
+      // Backward compatibility: old single assignedTo field
+      final assignedTo = json['assignedTo'] as String?;
+      if (assignedTo != null) {
+        assigneeList = [
+          TaskAssignee(
+            userId: assignedTo,
+            name: json['assigneeName'] as String?,
+            email: json['assigneeEmail'] as String?,
+            image: json['assigneeImage'] as String?,
+          ),
+        ];
+      }
+    }
 
     return Task(
       id: json['id'] as int,
       userId: json['userId'] as String,
-      assignedTo: json['assignedTo'] as String?,
       title: json['title'] as String,
       description: json['description'] as String?,
       status: json['status'] as String,
@@ -97,9 +155,7 @@ class Task {
       creatorName: json['creatorName'] as String?,
       creatorEmail: json['creatorEmail'] as String?,
       creatorImage: json['creatorImage'] as String?,
-      assigneeName: json['assigneeName'] as String?,
-      assigneeEmail: json['assigneeEmail'] as String?,
-      assigneeImage: json['assigneeImage'] as String?,
+      assignees: assigneeList,
       attachments: attachmentList,
     );
   }
@@ -108,7 +164,6 @@ class Task {
     return {
       'id': id,
       'userId': userId,
-      'assignedTo': assignedTo,
       'title': title,
       'description': description,
       'status': status,
@@ -118,9 +173,7 @@ class Task {
       'creatorName': creatorName,
       'creatorEmail': creatorEmail,
       'creatorImage': creatorImage,
-      'assigneeName': assigneeName,
-      'assigneeEmail': assigneeEmail,
-      'assigneeImage': assigneeImage,
+      'assignees': assignees.map((a) => a.toJson()).toList(),
       'attachments': attachments.map((a) => a.toJson()).toList(),
     };
   }

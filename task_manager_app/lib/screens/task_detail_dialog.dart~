@@ -30,13 +30,13 @@ class TaskDetailDialog extends StatelessWidget {
     String absoluteUrl = url;
     if (url.startsWith('/')) {
       final baseUrl = ApiService().baseUrl;
-      absoluteUrl = '$baseUrl$url';
+      absoluteUrl = '\$baseUrl\$url';
     }
     final uri = Uri.parse(absoluteUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      throw 'Could not launch $absoluteUrl';
+      throw 'Could not launch \$absoluteUrl';
     }
   }
 
@@ -47,7 +47,9 @@ class TaskDetailDialog extends StatelessWidget {
     if (parts.length == 1) {
       return parts[0][0].toUpperCase();
     }
-    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    final first = parts.first[0].toUpperCase();
+    final last = parts.last[0].toUpperCase();
+    return '\$first\$last';
   }
 
   Future<void> _confirmDelete(BuildContext context, Task task) async {
@@ -276,18 +278,19 @@ class TaskDetailDialog extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-                Text(
-                  'Create New Task',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              // Title
+              Text(
+                task.title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Created on ${task.createdAt.month}/${task.createdAt.day}/${task.createdAt.year} at ${task.createdAt.hour}:${task.createdAt.minute.toString().padLeft(2, '0')}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-                ),
-                const Divider(height: 32),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Created on \${task.createdAt.month}/\${task.createdAt.day}/\${task.createdAt.year} at \${task.createdAt.hour}:\${task.createdAt.minute.toString().padLeft(2, '0')}',
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+              ),
+              const Divider(height: 32),
 
               // Description
               Text(
@@ -421,8 +424,9 @@ class TaskDetailDialog extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
+              // Attachments
               Text(
-                'Attachments (${task.attachments.length})',
+                'Attachments (\${task.attachments.length})',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white70 : Colors.black87,

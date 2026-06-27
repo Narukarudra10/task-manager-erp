@@ -1,14 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { tasks, taskAttachments, user, groupMembers } from '@/lib/db/schema'
+import { tasks, taskAttachments, taskAssignees, user, groupMembers } from '@/lib/db/schema'
 import { desc, eq, and, inArray } from 'drizzle-orm'
-import { alias } from 'drizzle-orm/sqlite-core'
+import { alias } from 'drizzle-orm/pg-core'
 import { headers } from 'next/headers'
 
-// Define aliases for joining the user table multiple times
+// Define alias for joining the user table for creator info
 const creator = alias(user, 'creator')
-const assignee = alias(user, 'assignee')
 
 // Helper function to check if user belongs to group
 async function isUserGroupMember(userId: string, groupId: number): Promise<boolean> {
@@ -54,20 +53,18 @@ export async function GET(request: NextRequest) {
       }
       allowedGroupIds = [groupId]
     } else {
-      // If no groupId specified, fetch tasks for all groups the user is part of
       allowedGroupIds = await getUserGroupIds(session.user.id)
       if (allowedGroupIds.length === 0) {
         return NextResponse.json({ tasks: [] })
       }
     }
 
-    // Fetch all tasks matching the allowed groups with user info
+    // Fetch all tasks with creator info
     const allTasks = await db
       .select({
         id: tasks.id,
         groupId: tasks.groupId,
         userId: tasks.userId,
-        assignedTo: tasks.assignedTo,
         title: tasks.title,
         description: tasks.description,
         status: tasks.status,
@@ -77,33 +74,53 @@ export async function GET(request: NextRequest) {
         creatorName: creator.name,
         creatorEmail: creator.email,
         creatorImage: creator.image,
-        assigneeName: assignee.name,
-        assigneeEmail: assignee.email,
-        assigneeImage: assignee.image,
       })
       .from(tasks)
       .leftJoin(creator, eq(tasks.userId, creator.id))
-      .leftJoin(assignee, eq(tasks.assignedTo, assignee.id))
       .where(inArray(tasks.groupId, allowedGroupIds))
       .orderBy(desc(tasks.createdAt))
 
-    // Fetch attachments for all tasks
     const taskIds = allTasks.map((t) => t.id)
-    let attachments: (typeof taskAttachments.$inferSelect)[] = []
     
+    // Fetch attachments
+    let attachments: (typeof taskAttachments.$inferSelect)[] = []
     if (taskIds.length > 0) {
-      // Fetch all attachments for efficiency
       const allAttachments = await db.select().from(taskAttachments)
       attachments = allAttachments.filter((a) => taskIds.includes(a.taskId))
     }
 
-    // Group attachments by task
-    const tasksWithAttachments = allTasks.map((task) => ({
+    // Fetch all assignees for these tasks with user info
+    let assigneeRows: { taskId: number; userId: string; name: string | null; email: string | null; image: string | null; assignedAt: Date }[] = []
+    if (taskIds.length > 0) {
+      assigneeRows = await db
+        .select({
+          taskId: taskAssignees.taskId,
+          userId: taskAssignees.userId,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          assignedAt: taskAssignees.assignedAt,
+        })
+        .from(taskAssignees)
+        .leftJoin(user, eq(taskAssignees.userId, user.id))
+        .where(inArray(taskAssignees.taskId, taskIds))
+    }
+
+    // Build tasks with assignees and attachments
+    const tasksWithData = allTasks.map((task) => ({
       ...task,
       attachments: attachments.filter((a) => a.taskId === task.id),
+      assignees: assigneeRows
+        .filter((a) => a.taskId === task.id)
+        .map((a) => ({
+          userId: a.userId,
+          name: a.name,
+          email: a.email,
+          image: a.image,
+        })),
     }))
 
-    return NextResponse.json({ tasks: tasksWithAttachments })
+    return NextResponse.json({ tasks: tasksWithData })
   } catch (error) {
     console.error('Error fetching tasks:', error)
     return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
@@ -127,7 +144,6 @@ export async function POST(request: NextRequest) {
     }
     const groupId = parseInt(data.groupId, 10)
 
-    // Check group membership
     const isMember = await isUserGroupMember(session.user.id, groupId)
     if (!isMember) {
       return NextResponse.json({ error: 'Forbidden. You are not a member of this group.' }, { status: 403 })
@@ -138,13 +154,23 @@ export async function POST(request: NextRequest) {
       .values({
         groupId: groupId,
         userId: session.user.id,
-        assignedTo: data.assignedTo || null,
         title: data.title,
         description: data.description || null,
         priority: data.priority || 'medium',
         status: data.status || 'todo',
       })
       .returning()
+
+    // Handle multiple assignees
+    const assigneeIds: string[] = data.assignees || (data.assignedTo ? [data.assignedTo] : [])
+    if (assigneeIds.length > 0) {
+      await db.insert(taskAssignees).values(
+        assigneeIds.map((userId: string) => ({
+          taskId: task.id,
+          userId,
+        }))
+      )
+    }
 
     if (data.attachments && data.attachments.length > 0) {
       await db.insert(taskAttachments).values(
@@ -177,7 +203,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
-    // Fetch the task first to check its groupId
     const [targetTask] = await db
       .select({ groupId: tasks.groupId })
       .from(tasks)
@@ -188,7 +213,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    // Enforce group membership checks
     if (targetTask.groupId) {
       const isMember = await isUserGroupMember(session.user.id, targetTask.groupId)
       if (!isMember) {
@@ -198,12 +222,28 @@ export async function PATCH(request: NextRequest) {
 
     const updateData: Record<string, any> = { updatedAt: new Date() }
     if (data.status !== undefined) updateData.status = data.status
-    if (data.assignedTo !== undefined) updateData.assignedTo = data.assignedTo
 
     await db
       .update(tasks)
       .set(updateData)
       .where(eq(tasks.id, data.id))
+
+    // Handle assignees update (replace all assignees)
+    if (data.assignees !== undefined) {
+      // Delete existing assignees
+      await db.delete(taskAssignees).where(eq(taskAssignees.taskId, data.id))
+
+      // Insert new assignees
+      const assigneeIds: string[] = data.assignees || []
+      if (assigneeIds.length > 0) {
+        await db.insert(taskAssignees).values(
+          assigneeIds.map((userId: string) => ({
+            taskId: data.id,
+            userId,
+          }))
+        )
+      }
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -226,7 +266,6 @@ export async function DELETE(request: NextRequest) {
     }
     const id = parseInt(idStr, 10)
 
-    // Fetch task to check access
     const [targetTask] = await db
       .select({ groupId: tasks.groupId })
       .from(tasks)

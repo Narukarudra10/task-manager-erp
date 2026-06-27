@@ -141,6 +141,20 @@ export const taskAttachments = pgTable("task_attachments", {
     .defaultNow(),
 })
 
+// Multiple assignees per task (junction table)
+export const taskAssignees = pgTable("task_assignees", {
+  id: serial("id").primaryKey(),
+  taskId: integer("taskId")
+    .notNull()
+    .references(() => tasks.id, { onDelete: "cascade" }),
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  assignedAt: timestamp("assignedAt", { mode: "date" })
+    .notNull()
+    .defaultNow(),
+})
+
 export type Group = typeof groups.$inferSelect
 export type NewGroup = typeof groups.$inferInsert
 export type GroupMember = typeof groupMembers.$inferSelect
@@ -151,3 +165,6 @@ export type Task = typeof tasks.$inferSelect
 export type NewTask = typeof tasks.$inferInsert
 export type TaskAttachment = typeof taskAttachments.$inferSelect
 export type NewTaskAttachment = typeof taskAttachments.$inferInsert
+export type TaskAssignee = typeof taskAssignees.$inferSelect
+export type NewTaskAssignee = typeof taskAssignees.$inferInsert
+

@@ -267,7 +267,7 @@ class ApiService {
     String? description,
     String priority = 'medium',
     String status = 'todo',
-    String? assignedTo,
+    List<String> assignees = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
     final response = await _client.post(
@@ -279,7 +279,7 @@ class ApiService {
         'description': description,
         'priority': priority,
         'status': status,
-        'assignedTo': assignedTo,
+        'assignees': assignees,
         'attachments': attachments,
       }),
     );
@@ -295,15 +295,11 @@ class ApiService {
   Future<void> updateTask({
     required int id,
     String? status,
-    String? assignedTo,
+    List<String>? assignees,
   }) async {
     final body = <String, dynamic>{'id': id};
     if (status != null) body['status'] = status;
-    
-    // Allow unassigning tasks by sending an empty string which maps to null on the backend
-    if (assignedTo != null) {
-      body['assignedTo'] = assignedTo.isEmpty ? null : assignedTo;
-    }
+    if (assignees != null) body['assignees'] = assignees;
 
     final response = await _client.patch(
       Uri.parse('$_baseUrl/api/tasks'),
@@ -319,6 +315,10 @@ class ApiService {
 
   Future<void> updateTaskStatus(int id, String status) async {
     await updateTask(id: id, status: status);
+  }
+
+  Future<void> updateTaskAssignees(int id, List<String> assignees) async {
+    await updateTask(id: id, assignees: assignees);
   }
 
   Future<void> deleteTask(int id) async {
@@ -462,6 +462,50 @@ class ApiService {
     }
   }
 
+  Future<void> forgotPassword({required String email}) async {
+    final baseUrl = _baseUrl;
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/api/auth/forget-password'),
+      headers: _headers,
+      body: jsonEncode({
+        'email': email,
+        'redirectTo': '$baseUrl/?reset_token=',
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      String errorMessage = 'Failed to send reset email';
+      try {
+        final errorData = jsonDecode(response.body);
+        errorMessage = (errorData['message'] as String?) ?? errorMessage;
+      } catch (_) {}
+      throw Exception(errorMessage);
+    }
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/api/auth/reset-password'),
+      headers: _headers,
+      body: jsonEncode({
+        'token': token,
+        'newPassword': newPassword,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      String errorMessage = 'Failed to reset password';
+      try {
+        final errorData = jsonDecode(response.body);
+        errorMessage = (errorData['message'] as String?) ?? errorMessage;
+      } catch (_) {}
+      throw Exception(errorMessage);
+    }
+  }
+
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -480,6 +524,17 @@ class ApiService {
       final errorData = jsonDecode(response.body);
       throw Exception(errorData['message'] ?? 'Failed to change password');
     }
+  }
+
+  Future<void> signInWithGoogle() async {
+    // For Flutter Web: redirect to Google OAuth URL
+    final callbackUrl = Uri.base.origin;
+    final googleUrl = '$_baseUrl/api/auth/sign-in/social?provider=google&callbackURL=$callbackUrl';
+    throw Exception('REDIRECT_REQUIRED:$googleUrl');
+  }
+
+  Future<void> initiateGoogleSignIn({required String callbackUrl}) async {
+    throw Exception('REDIRECT_REQUIRED:$callbackUrl');
   }
 
   Future<Map<String, dynamic>> uploadFile({

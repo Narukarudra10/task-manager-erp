@@ -4,6 +4,7 @@ import { bearer } from "better-auth/plugins"
 import { db } from "./db"
 import * as schema from "./db/schema"
 import { eq, and } from "drizzle-orm"
+import { sendPasswordResetEmail } from "./email"
 
 const getBaseURL = () => {
   if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL
@@ -37,7 +38,26 @@ export const auth = betterAuth({
   trustedOrigins: getTrustedOrigins(),
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendPasswordResetEmail({
+        toEmail: user.email,
+        resetUrl: url,
+        userName: user.name,
+      })
+    },
+    resetPasswordTokenExpiresIn: 3600, // 1 hour
   },
+  // Google OAuth — activate by setting GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env
+  ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ? {
+        socialProviders: {
+          google: {
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          },
+        },
+      }
+    : {}),
   plugins: [
     bearer(),
   ],

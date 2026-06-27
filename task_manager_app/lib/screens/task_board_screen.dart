@@ -282,7 +282,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
       innerContent = const SettingsContent();
     } else {
       final filteredTasks = taskProvider.filterMode == 'my'
-          ? tasks.where((t) => t.assignedTo == currentUserId).toList()
+          ? tasks.where((t) => t.assignees.any((a) => a.userId == currentUserId)).toList()
           : tasks;
 
       final todoTasks = filteredTasks.where((t) => t.status == 'todo').toList();
@@ -1183,25 +1183,36 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                           ),
                         ),
                       ),
-                      if (task.assignedTo != null) ...[
-                        const SizedBox(width: 4),
-                        Tooltip(
-                          message: 'Assigned to ${task.assigneeName ?? 'User'}',
-                          child: CircleAvatar(
-                            radius: 10,
-                            backgroundColor: theme.colorScheme.secondary
-                                .withValues(alpha: 0.85),
-                            child: Text(
-                              _getInitials(task.assigneeName ?? 'User'),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 7.5,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      const SizedBox(width: 4),
+                      if (task.assignees.isNotEmpty)
+                        SizedBox(
+                          height: 20,
+                          width: 20.0 + (task.assignees.length - 1) * 12.0,
+                          child: Stack(
+                            children: task.assignees.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final assignee = entry.value;
+                              return Positioned(
+                                left: idx * 12.0,
+                                child: Tooltip(
+                                  message: 'Assigned to ${assignee.name ?? 'User'}',
+                                  child: CircleAvatar(
+                                    radius: 10,
+                                    backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.85),
+                                    child: Text(
+                                      assignee.initials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 7.5,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ],
