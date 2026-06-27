@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
-import '../services/api_service.dart';
 import '../providers/task_provider.dart';
 import '../providers/group_provider.dart';
+import '../widgets/custom_dotted_border.dart';
 
 class AddTaskDialog extends StatefulWidget {
   final String initialStatus;
@@ -18,6 +18,37 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+
+  InputDecoration _getInputDecoration({
+    required String label,
+    required String hint,
+    IconData? prefixIcon,
+    required bool isDark,
+    required ThemeData theme,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 18) : null,
+      filled: true,
+      fillColor: isDark ? const Color(0xFF161A2B) : const Color(0xFFF8FAFC),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+      ),
+      labelStyle: const TextStyle(fontSize: 13),
+      hintStyle: const TextStyle(fontSize: 13),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    );
+  }
 
   @override
   void initState() {
@@ -103,6 +134,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final taskProvider = context.watch<TaskProvider>();
     final groupProvider = context.watch<GroupProvider>();
 
@@ -114,6 +146,8 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
     final members = groupProvider.activeGroupMembers;
 
     return Dialog(
+      backgroundColor: theme.colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500),
@@ -129,12 +163,23 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Create New Task',
-                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    Row(
+                      children: [
+                        const Text(
+                          '📋 ',
+                          style: TextStyle(fontSize: 20),
+                        ),
+                        Text(
+                          'Create New Task',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded),
+                      icon: const Icon(Icons.close_rounded, size: 20),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -144,10 +189,12 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                 // Title
                 TextFormField(
                   controller: _titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Task Title',
-                    border: OutlineInputBorder(),
-                    hintText: 'Enter task title',
+                  style: const TextStyle(fontSize: 14),
+                  decoration: _getInputDecoration(
+                    label: 'Task Title',
+                    hint: 'Enter task title',
+                    isDark: isDark,
+                    theme: theme,
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -162,10 +209,12 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                 TextFormField(
                   controller: _descriptionController,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Description (optional)',
-                    border: OutlineInputBorder(),
-                    hintText: 'Enter task description',
+                  style: const TextStyle(fontSize: 14),
+                  decoration: _getInputDecoration(
+                    label: 'Description (optional)',
+                    hint: 'Enter task description',
+                    isDark: isDark,
+                    theme: theme,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -173,9 +222,13 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                 // Priority Dropdown
                 DropdownButtonFormField<String>(
                   value: priority,
-                  decoration: const InputDecoration(
-                    labelText: 'Priority',
-                    border: OutlineInputBorder(),
+                  style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
+                  dropdownColor: isDark ? const Color(0xFF161A2B) : Colors.white,
+                  decoration: _getInputDecoration(
+                    label: 'Priority',
+                    hint: 'Select priority',
+                    isDark: isDark,
+                    theme: theme,
                   ),
                   items: const [
                     DropdownMenuItem(value: 'low', child: Text('Low')),
@@ -193,10 +246,14 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                 // Assign To Dropdown
                 DropdownButtonFormField<String?>(
                   value: assignedUserId,
-                  decoration: const InputDecoration(
-                    labelText: 'Assign To (optional)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person_add_alt_1_outlined),
+                  style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
+                  dropdownColor: isDark ? const Color(0xFF161A2B) : Colors.white,
+                  decoration: _getInputDecoration(
+                    label: 'Assign To (optional)',
+                    hint: 'Select team member',
+                    prefixIcon: Icons.person_add_alt_1_outlined,
+                    isDark: isDark,
+                    theme: theme,
                   ),
                   items: [
                     const DropdownMenuItem<String?>(
@@ -212,37 +269,50 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                     taskProvider.setCreateAssignedUserId(value);
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-                // Attachments
+                // Attachments Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       'Attachments',
-                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: isUploading || isSaving ? null : _pickAndUploadFiles,
-                      icon: isUploading
-                          ? const SizedBox(
-                              height: 14,
-                              width: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.upload_file_rounded, size: 16),
-                      label: Text(isUploading ? 'Uploading...' : 'Add Files'),
-                    ),
+                    if (attachments.isNotEmpty)
+                      OutlinedButton.icon(
+                        onPressed: isUploading || isSaving ? null : _pickAndUploadFiles,
+                        icon: isUploading
+                            ? const SizedBox(
+                                height: 14,
+                                width: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.upload_file_rounded, size: 16),
+                        label: Text(
+                          isUploading ? 'Uploading...' : 'Add Files',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                // Attachments List
+                // Attachments List / Upload Zone
                 if (attachments.isNotEmpty)
                   Container(
                     constraints: const BoxConstraints(maxHeight: 150),
                     decoration: BoxDecoration(
-                      border: Border.all(color: theme.colorScheme.outlineVariant.withAlpha(128)),
+                      border: Border.all(color: theme.colorScheme.outlineVariant),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: ListView.builder(
@@ -257,8 +327,12 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                             att['fileName'] as String,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
                           ),
-                          subtitle: Text(_formatFileSize(att['fileSize'] as int)),
+                          subtitle: Text(
+                            _formatFileSize(att['fileSize'] as int),
+                            style: const TextStyle(fontSize: 11),
+                          ),
                           trailing: IconButton(
                             icon: Icon(Icons.delete_outline_rounded, color: theme.colorScheme.error, size: 18),
                             onPressed: () => _removeAttachment(index),
@@ -268,25 +342,46 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                     ),
                   )
                 else
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                        style: BorderStyle.none,
-                      ),
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(Icons.cloud_upload_outlined, size: 32, color: Colors.grey.shade400),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'No files attached yet',
-                          style: TextStyle(color: Colors.grey, fontSize: 13),
+                  GestureDetector(
+                    onTap: isUploading || isSaving ? null : _pickAndUploadFiles,
+                    child: CustomDottedBorder(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                      borderRadius: 8,
+                      strokeWidth: 1.2,
+                      gap: 5.0,
+                      dashLength: 5.0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF161A2B) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      ],
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.cloud_upload_outlined,
+                              size: 32,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Drag & drop files or click to browse',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Supports JPG, PNG, GIF, MP4, PDF, DOCX',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 const SizedBox(height: 24),
@@ -299,12 +394,16 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                       onPressed: isSaving ? null : () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: isSaving || isUploading ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       child: isSaving
                           ? const SizedBox(
@@ -315,7 +414,10 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                                 valueColor: AlwaysStoppedAnimation(Colors.white),
                               ),
                             )
-                          : const Text('Create Task'),
+                          : const Text(
+                              'Create Task',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                     ),
                   ],
                 ),

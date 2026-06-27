@@ -5,14 +5,32 @@ import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/group_provider.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Settings & Profile',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        automaticallyImplyLeading: false,
+      ),
+      body: const SettingsContent(),
+    );
+  }
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class SettingsContent extends StatefulWidget {
+  const SettingsContent({super.key});
+
+  @override
+  State<SettingsContent> createState() => _SettingsContentState();
+}
+
+class _SettingsContentState extends State<SettingsContent> {
   final _profileFormKey = GlobalKey<FormState>();
   final _passwordFormKey = GlobalKey<FormState>();
 
@@ -218,15 +236,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final currentThemeMode = themeProvider.themeMode;
     final authProvider = context.watch<AuthProvider>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Settings & Profile',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        automaticallyImplyLeading: false,
-      ),
-      body: Center(
+    return Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 600),
           child: ListView(
@@ -1020,8 +1030,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   void _showCreateGroupDialog(BuildContext context) {

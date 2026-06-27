@@ -10,6 +10,8 @@ import 'task_detail_dialog.dart';
 import 'add_task_dialog.dart';
 import 'settings_screen.dart';
 
+import '../widgets/custom_dotted_border.dart';
+
 class TaskBoardScreen extends StatefulWidget {
   const TaskBoardScreen({super.key});
 
@@ -21,6 +23,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Timer? _pollingTimer;
+  String _activeTab = 'board';
 
   @override
   void initState() {
@@ -120,17 +123,140 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     return '$first$last';
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSidebar(BuildContext context, bool isDrawer) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final user = context.watch<AuthProvider>().currentUser;
-    final userName = user?['name'] ?? 'User';
-    final userEmail = user?['email'] ?? '';
-    final initials = _getInitials(userName);
-    final currentUserId = user?['id'] as String?;
+    final taskProvider = context.watch<TaskProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
+    final sidebarBg = theme.colorScheme.surfaceContainerHighest;
+    final activeColor = theme.colorScheme.primary;
+    final textColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+    final activeTextColor = Colors.white;
+
+    Widget buildNavItem({
+      required IconData icon,
+      required String label,
+      required bool isActive,
+      required VoidCallback onTap,
+      Color? customIconColor,
+    }) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive ? activeColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ListTile(
+          onTap: () {
+            onTap();
+            if (isDrawer) {
+              Navigator.pop(context);
+            }
+          },
+          dense: true,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          leading: Icon(
+            icon,
+            color: isActive ? activeTextColor : (customIconColor ?? textColor),
+            size: 20,
+          ),
+          title: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? activeTextColor : textColor,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: 240,
+      color: sidebarBg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 40),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: Text(
+              'TASKS',
+              style: TextStyle(
+                color: isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8),
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ),
+          buildNavItem(
+            icon: Icons.home_rounded,
+            label: 'All Tasks',
+            isActive: _activeTab == 'board' && taskProvider.filterMode == 'all',
+            onTap: () {
+              setState(() {
+                _activeTab = 'board';
+              });
+              taskProvider.setFilterMode('all');
+            },
+          ),
+          buildNavItem(
+            icon: Icons.check_box_outlined,
+            label: 'My Tasks',
+            isActive: _activeTab == 'board' && taskProvider.filterMode == 'my',
+            onTap: () {
+              setState(() {
+                _activeTab = 'board';
+              });
+              taskProvider.setFilterMode('my');
+            },
+          ),
+          const Spacer(),
+          const Divider(height: 1, indent: 12, endIndent: 12),
+          const SizedBox(height: 8),
+          buildNavItem(
+            icon: Icons.settings_outlined,
+            label: 'Settings',
+            isActive: _activeTab == 'settings',
+            onTap: () {
+              setState(() {
+                _activeTab = 'settings';
+              });
+            },
+          ),
+          buildNavItem(
+            icon: Icons.logout_rounded,
+            label: 'Logout',
+            isActive: false,
+            customIconColor: Colors.redAccent,
+            onTap: () async {
+              try {
+                await authProvider.signOut();
+                if (mounted) {
+                  context.read<GroupProvider>().clear();
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to logout: $e')),
+                  );
+                }
+              }
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainContent(BuildContext context, bool isMobile) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     final groupProvider = context.watch<GroupProvider>();
     final groups = groupProvider.groups;
     final activeGroup = groupProvider.activeGroup;
@@ -141,372 +267,331 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     final isLoading = taskProvider.isLoading || isGroupLoading;
     final errorMessage = taskProvider.errorMessage ?? groupProvider.errorMessage;
 
-    final filteredTasks = taskProvider.filterMode == 'my'
-        ? tasks.where((t) => t.assignedTo == currentUserId).toList()
-        : tasks;
+    final currentUserId = context.watch<AuthProvider>().currentUser?['id'] as String?;
+    final userName = context.watch<AuthProvider>().currentUser?['name'] ?? 'User';
+    final initials = _getInitials(userName);
 
-    final todoTasks = filteredTasks.where((t) => t.status == 'todo').toList();
-    final inProgressTasks = filteredTasks
-        .where((t) => t.status == 'in_progress')
-        .toList();
-    final doneTasks = filteredTasks.where((t) => t.status == 'done').toList();
+    Widget innerContent;
 
-    final mainContent = isLoading
-        ? const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(Colors.white),
-            ),
-          )
-        : errorMessage != null
-        ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline_rounded,
-                  size: 48,
-                  color: Colors.white70,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Error: $errorMessage',
-                  style: const TextStyle(color: Colors.white),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    context.read<GroupProvider>().loadGroups();
-                  },
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          )
-        : groups.isEmpty
-        ? _buildOnboardingScreen()
-        : LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth > 800) {
-                // Desktop/Web side-by-side columns with horizontal scroll and responsive width
-                final double colWidth = constraints.maxWidth > 1100
-                    ? (constraints.maxWidth - 64) / 3
-                    : 340.0;
+    if (_activeTab == 'settings') {
+      innerContent = const SettingsContent();
+    } else {
+      final filteredTasks = taskProvider.filterMode == 'my'
+          ? tasks.where((t) => t.assignedTo == currentUserId).toList()
+          : tasks;
 
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: SizedBox(
-                      height: constraints.maxHeight - 32,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            width: colWidth,
-                            child: _buildTaskColumn(
-                              title: 'To Do',
-                              status: 'todo',
-                              icon: Icons.circle_outlined,
-                              color: isDark
-                                  ? Colors.grey.shade400
-                                  : Colors.grey.shade600,
-                              tasks: todoTasks,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          SizedBox(
-                            width: colWidth,
-                            child: _buildTaskColumn(
-                              title: 'In Progress',
-                              status: 'in_progress',
-                              icon: Icons.schedule_rounded,
-                              color: isDark
-                                  ? Colors.blue.shade400
-                                  : Colors.blue.shade700,
-                              tasks: inProgressTasks,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          SizedBox(
-                            width: colWidth,
-                            child: _buildTaskColumn(
-                              title: 'Done',
-                              status: 'done',
-                              icon: Icons.check_circle_outline_rounded,
-                              color: isDark
-                                  ? Colors.green.shade400
-                                  : Colors.green.shade700,
-                              tasks: doneTasks,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              } else {
-                // Mobile tabbed columns
-                return Column(
-                  children: [
-                    TabBar(
-                      controller: _tabController,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white70,
-                      indicatorColor: Colors.white,
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      tabs: [
-                        Tab(text: 'To Do (${todoTasks.length})'),
-                        Tab(text: 'In Progress (${inProgressTasks.length})'),
-                        Tab(text: 'Done (${doneTasks.length})'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: _buildTaskList(todoTasks, 'todo'),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: _buildTaskList(
-                              inProgressTasks,
-                              'in_progress',
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: _buildTaskList(doneTasks, 'done'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }
-            },
-          );
+      final todoTasks = filteredTasks.where((t) => t.status == 'todo').toList();
+      final inProgressTasks = filteredTasks.where((t) => t.status == 'in_progress').toList();
+      final doneTasks = filteredTasks.where((t) => t.status == 'done').toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: isDark
-            ? const Color(0xFF0F172A)
-            : const Color(0xFF0079BF),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Row(
-          children: [
-            const Icon(Icons.task_alt_rounded, color: Colors.white),
-            if (screenWidth > 480) ...[
-              const SizedBox(width: 8),
-              const Text(
-                'TaskFlow',
-                style: TextStyle(fontWeight: FontWeight.bold),
+      if (isLoading) {
+        innerContent = const Center(
+          child: CircularProgressIndicator(),
+        );
+      } else if (errorMessage != null) {
+        innerContent = Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded, size: 48, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text('Error: $errorMessage'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context.read<GroupProvider>().loadGroups(),
+                child: const Text('Retry'),
               ),
             ],
-          ],
-        ),
-        actions: [
-          // Workspace Selector Dropdown
-          if (groups.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<dynamic>(
-                  value: activeGroup != null && groups.any((g) => g['id'] == activeGroup['id'])
-                      ? groups.firstWhere((g) => g['id'] == activeGroup['id'])
-                      : null,
-                  icon: const Icon(
-                    Icons.workspace_premium_rounded,
-                    size: 16,
-                    color: Colors.white70,
-                  ),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  dropdownColor: isDark
-                      ? const Color(0xFF1E293B)
-                      : const Color(0xFF0067A3),
-                  borderRadius: BorderRadius.circular(12),
-                  hint: const Text('Select Workspace', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  items: groups.map<DropdownMenuItem<dynamic>>((g) {
-                    return DropdownMenuItem<dynamic>(
-                      value: g,
-                      child: Text(
-                        g['name'] as String,
-                        style: const TextStyle(color: Colors.white),
+          ),
+        );
+      } else if (groups.isEmpty) {
+        innerContent = _buildOnboardingScreen();
+      } else {
+        innerContent = LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth > 800) {
+              final double colWidth = constraints.maxWidth > 1100
+                  ? (constraints.maxWidth - 64) / 3
+                  : 340.0;
+
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: colWidth,
+                        child: _buildTaskColumn(
+                          title: 'To Do',
+                          status: 'todo',
+                          icon: Icons.circle_outlined,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                          tasks: todoTasks,
+                        ),
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      groupProvider.setActiveGroup(val);
-                    }
-                  },
-                ),
-              ),
-            ),
-          const SizedBox(width: 8),
-          // Filter Mode Dropdown
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: taskProvider.filterMode,
-                icon: const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 18,
-                  color: Colors.white,
-                ),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                dropdownColor: isDark
-                    ? const Color(0xFF1E293B)
-                    : const Color(0xFF0067A3),
-                borderRadius: BorderRadius.circular(12),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'all',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.assignment_rounded,
-                          size: 16,
-                          color: Colors.white70,
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: colWidth,
+                        child: _buildTaskColumn(
+                          title: 'In Progress',
+                          status: 'in_progress',
+                          icon: Icons.circle,
+                          color: const Color(0xFF06B6D4),
+                          tasks: inProgressTasks,
                         ),
-                        SizedBox(width: 8),
-                        Text(
-                          'All Tasks',
-                          style: TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: colWidth,
+                        child: _buildTaskColumn(
+                          title: 'Done',
+                          status: 'done',
+                          icon: Icons.check_circle_outline_rounded,
+                          color: const Color(0xFF10B981),
+                          tasks: doneTasks,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  DropdownMenuItem(
-                    value: 'my',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                ),
+              );
+            } else {
+              return Column(
+                children: [
+                  TabBar(
+                    controller: _tabController,
+                    labelColor: theme.colorScheme.primary,
+                    unselectedLabelColor: isDark ? Colors.white60 : Colors.black54,
+                    indicatorColor: theme.colorScheme.primary,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    tabs: [
+                      Tab(text: 'To Do (${todoTasks.length})'),
+                      Tab(text: 'In Progress (${inProgressTasks.length})'),
+                      Tab(text: 'Done (${doneTasks.length})'),
+                    ],
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
                       children: [
-                        Icon(
-                          Icons.person_pin_rounded,
-                          size: 16,
-                          color: Colors.white70,
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: _buildTaskList(todoTasks, 'todo'),
                         ),
-                        SizedBox(width: 8),
-                        Text('My Tasks', style: TextStyle(color: Colors.white)),
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: _buildTaskList(inProgressTasks, 'in_progress'),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: _buildTaskList(doneTasks, 'done'),
+                        ),
                       ],
                     ),
                   ),
                 ],
-                onChanged: (val) {
-                  if (val != null) {
-                    taskProvider.setFilterMode(val);
-                  }
-                },
+              );
+            }
+          },
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0A0C16) : const Color(0xFFEEF2F6),
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant,
+                width: 1,
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          // Responsive User Profile Avatar/Chip
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: Tooltip(
-              message: '$userName ($userEmail)',
-              child: screenWidth > 600
-                  ? Chip(
-                      backgroundColor: Colors.white.withOpacity(0.15),
-                      side: BorderSide.none,
-                      avatar: CircleAvatar(
-                        backgroundColor: Colors.white,
-                        child: Text(
-                          initials,
-                          style: TextStyle(
-                            color: isDark
-                                ? const Color(0xFF0F172A)
-                                : const Color(0xFF0079BF),
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      label: Text(
-                        userName,
-                        style: TextStyle(
-                          color: isDark
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFF0079BF),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    )
-                  : CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Colors.white.withOpacity(0.25),
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+          child: Row(
+            children: [
+              if (isMobile) ...[
+                IconButton(
+                  icon: const Icon(Icons.menu_rounded),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TaskFlow ERP',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
-            tooltip: 'Settings',
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-              if (mounted) {
-                context.read<TaskProvider>().loadTasks();
-              }
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [
-                    const Color(0xFF0F172A), // Slate 900
-                    const Color(0xFF0D1B2A), // Midnight blue
-                    const Color(0xFF1B263B), // Navy blue
-                  ]
-                : [
-                    const Color(0xFF0079BF), // Trello blue
-                    const Color(0xFF0091E6), // Vivid blue
-                    const Color(0xFF51A2E8), // Light soft blue
+                    const Text(
+                      'Enterprise Edition',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                      ),
+                    ),
                   ],
+                ),
+              ),
+              if (groups.isNotEmpty && _activeTab == 'board') ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<dynamic>(
+                      value: activeGroup != null && groups.any((g) => g['id'] == activeGroup['id'])
+                          ? groups.firstWhere((g) => g['id'] == activeGroup['id'])
+                          : null,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      hint: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.workspace_premium_rounded, size: 14, color: Colors.grey),
+                          SizedBox(width: 4),
+                          Text('Select Workspace', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        ],
+                      ),
+                      items: groups.map<DropdownMenuItem<dynamic>>((g) {
+                        return DropdownMenuItem<dynamic>(
+                          value: g,
+                          child: Text(
+                            g['name'] as String,
+                            style: TextStyle(
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          groupProvider.setActiveGroup(val);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              if (_activeTab == 'board' && groups.isNotEmpty) ...[
+                ElevatedButton.icon(
+                  onPressed: () => _showAddTaskForStatus('todo'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('New Task'),
+                ),
+                const SizedBox(width: 12),
+              ],
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
+                child: Text(
+                  initials,
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        child: mainContent,
-      ),
+        if (_activeTab == 'board' && groups.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      taskProvider.filterMode == 'my' ? 'My Tasks' : 'All Tasks',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Organize and track all tasks in one place.',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Expanded(
+          child: innerContent,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth <= 800;
+
+        return Scaffold(
+          drawer: isMobile ? Drawer(child: _buildSidebar(context, true)) : null,
+          body: isMobile
+              ? _buildMainContent(context, true)
+              : Row(
+                  children: [
+                    _buildSidebar(context, false),
+                    Expanded(
+                      child: _buildMainContent(context, false),
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
 
@@ -521,6 +606,78 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     }
   }
 
+  Widget _buildEmptyState({
+    required String status,
+    required bool isDark,
+  }) {
+    IconData icon;
+    String title;
+    String subtitle;
+    Color iconColor;
+
+    switch (status) {
+      case 'todo':
+        icon = Icons.inventory_2_outlined;
+        title = 'Ready for work';
+        subtitle = 'No tasks waiting in queue';
+        iconColor = isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8);
+        break;
+      case 'in_progress':
+        icon = Icons.autorenew_rounded;
+        title = 'Active focus';
+        subtitle = 'Nothing currently in progress';
+        iconColor = const Color(0xFF06B6D4);
+        break;
+      case 'done':
+      default:
+        icon = Icons.verified_outlined;
+        title = 'All caught up';
+        subtitle = 'Completed tasks will appear here';
+        iconColor = const Color(0xFF10B981);
+        break;
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          status == 'in_progress'
+              ? SizedBox(
+                  height: 36,
+                  width: 36,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(iconColor),
+                  ),
+                )
+              : Icon(
+                  icon,
+                  size: 40,
+                  color: iconColor,
+                ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: isDark ? Colors.white : const Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTaskColumn({
     required String title,
     required String status,
@@ -531,9 +688,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     return DragTarget<Task>(
-      onWillAccept: (data) => data != null && data.status != status,
-      onAccept: (task) {
-        _updateStatus(task, status);
+      onWillAcceptWithDetails: (details) => details.data.status != status,
+      onAcceptWithDetails: (details) {
+        _updateStatus(details.data, status);
       },
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
@@ -541,19 +698,19 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
           decoration: BoxDecoration(
             color: isHovering
                 ? (isDark
-                      ? Colors.white.withOpacity(0.12)
-                      : Colors.white.withOpacity(0.98))
-                : (isDark ? const Color(0xFF101214) : const Color(0xFFF1F2F4)),
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : Colors.white.withValues(alpha: 0.98))
+                : theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isHovering
-                  ? theme.colorScheme.primary.withOpacity(0.6)
+                  ? theme.colorScheme.primary.withValues(alpha: 0.6)
                   : Colors.transparent,
               width: isHovering ? 2.0 : 1.0,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -562,7 +719,6 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Top Accent Indicator Line
               Container(
                 height: 4,
                 decoration: BoxDecoration(
@@ -580,7 +736,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                     Icon(
                       icon,
                       size: 18,
-                      color: isDark ? color.withOpacity(0.9) : color,
+                      color: isDark ? color.withValues(alpha: 0.9) : color,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -599,7 +755,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                       ),
                       decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFF22252A)
+                            ? const Color(0xFF222535)
                             : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -614,6 +770,13 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                         ),
                       ),
                     ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.more_horiz_rounded, size: 18, color: Colors.grey),
+                      onPressed: () {},
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                   ],
                 ),
               ),
@@ -627,30 +790,35 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                   child: _buildTaskList(tasks, status),
                 ),
               ),
-              // "+ Add a card" button
               Padding(
                 padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                child: TextButton.icon(
-                  onPressed: () => _showAddTaskForStatus(status),
-                  style: TextButton.styleFrom(
-                    foregroundColor: isDark
-                        ? Colors.white70
-                        : const Color(0xFF44546F),
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                child: CustomDottedBorder(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                  borderRadius: 8,
+                  strokeWidth: 1.0,
+                  gap: 4,
+                  dashLength: 6,
+                  child: TextButton.icon(
+                    onPressed: () => _showAddTaskForStatus(status),
+                    style: TextButton.styleFrom(
+                      foregroundColor: isDark ? Colors.white70 : const Color(0xFF44546F),
+                      minimumSize: const Size(double.infinity, 40),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text(
-                    'Add a card',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w500,
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    label: const Text(
+                      'Add Task',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -667,50 +835,50 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     final isDark = theme.brightness == Brightness.dark;
     if (tasks.isEmpty) {
       return DragTarget<Task>(
-        onWillAccept: (data) => data != null && data.status != columnStatus,
-        onAccept: (task) {
-          _updateStatus(task, columnStatus);
+        onWillAcceptWithDetails: (details) => details.data.status != columnStatus,
+        onAcceptWithDetails: (details) {
+          _updateStatus(details.data, columnStatus);
         },
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
-          return Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isHovering
-                    ? (isDark
-                          ? Colors.white.withOpacity(0.05)
-                          : Colors.black.withOpacity(0.03))
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                border: isHovering
-                    ? Border.all(
-                        color: theme.colorScheme.primary.withOpacity(0.3),
-                        style: BorderStyle.solid,
-                      )
-                    : null,
-              ),
-              child: Text(
-                isHovering
-                    ? 'Drop here to update status'
-                    : 'No tasks in this stage',
-                style: TextStyle(
-                  color: isHovering ? theme.colorScheme.primary : Colors.grey,
-                  fontSize: 13,
-                  fontWeight: isHovering ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isHovering
+                  ? (isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.03))
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: isHovering
+                  ? Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      style: BorderStyle.solid,
+                    )
+                  : null,
             ),
+            child: isHovering
+                ? Center(
+                    child: Text(
+                      'Drop here to update status',
+                      style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                : _buildEmptyState(status: columnStatus, isDark: isDark),
           );
         },
       );
     }
 
     return DragTarget<Task>(
-      onWillAccept: (data) => data != null && data.status != columnStatus,
-      onAccept: (task) {
-        _updateStatus(task, columnStatus);
+      onWillAcceptWithDetails: (details) => details.data.status != columnStatus,
+      onAcceptWithDetails: (details) {
+        _updateStatus(details.data, columnStatus);
       },
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
@@ -719,8 +887,8 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
           decoration: BoxDecoration(
             color: isHovering
                 ? (isDark
-                      ? Colors.white.withOpacity(0.04)
-                      : Colors.black.withOpacity(0.02))
+                      ? Colors.white.withValues(alpha: 0.04)
+                      : Colors.black.withValues(alpha: 0.02))
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
@@ -742,26 +910,24 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     final hasAttachments = task.attachments.isNotEmpty;
     final isDark = theme.brightness == Brightness.dark;
 
-    // Get priority badge color (Soft Pastel Scheme)
     Color priorityColor;
     Color priorityTextColor;
     switch (task.priority) {
       case 'high':
-        priorityColor = const Color(0xFFFEE2E2); // soft red
-        priorityTextColor = const Color(0xFF991B1B);
+        priorityColor = isDark ? const Color(0xFF3B1E1E) : const Color(0xFFFEE2E2);
+        priorityTextColor = isDark ? const Color(0xFFEF4444) : const Color(0xFFB91C1C);
         break;
       case 'medium':
-        priorityColor = const Color(0xFFFEF3C7); // soft amber
-        priorityTextColor = const Color(0xFF92400E);
+        priorityColor = isDark ? const Color(0xFF3D2E1A) : const Color(0xFFFEF3C7);
+        priorityTextColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309);
         break;
       case 'low':
       default:
-        priorityColor = const Color(0xFFF1F5F9); // soft slate/grey
-        priorityTextColor = const Color(0xFF475569);
+        priorityColor = isDark ? const Color(0xFF1E2235) : const Color(0xFFF1F5F9);
+        priorityTextColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
         break;
     }
 
-    // Get next/prev status
     String? nextStatus;
     String? prevStatus;
     if (task.status == 'todo') {
@@ -773,39 +939,27 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
       prevStatus = 'in_progress';
     }
 
-    // Creator initials
     final creatorName = task.creatorName ?? 'User';
     final creatorInitials = _getInitials(creatorName);
 
-    // Format date like "Jun 18"
     final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     final dateStr = '${months[task.createdAt.month - 1]} ${task.createdAt.day}';
 
     final card = Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF22252A) : Colors.white,
+        color: theme.colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isDark ? const Color(0xFF303540) : Colors.grey.shade200,
+          color: theme.colorScheme.outlineVariant,
           width: 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
             blurRadius: 4,
             offset: const Offset(0, 1.5),
           ),
@@ -819,7 +973,6 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top row: Priority Pill
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -837,8 +990,6 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                 ),
               ),
               const SizedBox(height: 8),
-
-              // 2. Title and Actions
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -854,7 +1005,6 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                     ),
                   ),
                   const SizedBox(width: 4),
-                  // Compact dropdown trigger
                   SizedBox(
                     height: 24,
                     width: 24,
@@ -929,8 +1079,6 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                   ),
                 ],
               ),
-
-              // 3. Description preview
               if (task.description != null && task.description!.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -938,16 +1086,12 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: isDark
-                        ? Colors.grey.shade400
-                        : const Color(0xFF44546F),
+                    color: isDark ? Colors.grey.shade400 : const Color(0xFF44546F),
                     fontSize: 12,
                     height: 1.3,
                   ),
                 ),
               ],
-
-              // 4. Attachments indicator
               if (hasAttachments) ...[
                 const SizedBox(height: 8),
                 Row(
@@ -970,21 +1114,15 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                   ],
                 ),
               ],
-
               const SizedBox(height: 10),
-
-              // 5. Divider
               Divider(
                 height: 1,
-                color: isDark ? const Color(0xFF2C323D) : Colors.grey.shade100,
+                color: theme.colorScheme.outlineVariant,
               ),
               const SizedBox(height: 8),
-
-              // 6. Footer: Date on left, Avatars on right
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Date badge (Trello style icon + date)
                   Row(
                     children: [
                       const Icon(
@@ -1003,17 +1141,14 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                       ),
                     ],
                   ),
-                  // Avatars stacked or spaced
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Creator Avatar
                       Tooltip(
                         message: 'Created by $creatorName',
                         child: CircleAvatar(
                           radius: 10,
-                          backgroundColor: theme.colorScheme.primary
-                              .withOpacity(0.85),
+                          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.85),
                           child: Text(
                             creatorInitials,
                             style: const TextStyle(
@@ -1026,13 +1161,11 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                       ),
                       if (task.assignedTo != null) ...[
                         const SizedBox(width: 4),
-                        // Assignee Avatar
                         Tooltip(
                           message: 'Assigned to ${task.assigneeName ?? 'User'}',
                           child: CircleAvatar(
                             radius: 10,
-                            backgroundColor: theme.colorScheme.secondary
-                                .withOpacity(0.85),
+                            backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.85),
                             child: Text(
                               _getInitials(task.assigneeName ?? 'User'),
                               style: const TextStyle(
@@ -1061,9 +1194,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
         width: 250,
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF22252A) : Colors.white,
+          color: theme.colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.5)),
+          border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

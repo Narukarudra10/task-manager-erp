@@ -45,15 +45,47 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6750A4), // Premium Indigo/Violet
+          seedColor: const Color(0xFF4F46E5),
           brightness: Brightness.light,
+        ).copyWith(
+          primary: const Color(0xFF4F46E5),
+          secondary: const Color(0xFF06B6D4),
+          surface: const Color(0xFFF1F5F9), // column background
+          surfaceContainer: const Color(0xFFFFFFFF), // card background
+          surfaceContainerHighest: const Color(0xFFF8FAFC), // sidebar background
+          outlineVariant: const Color(0xFFE2E8F0), // border lines
+        ),
+        scaffoldBackgroundColor: const Color(0xFFEEF2F6),
+        cardTheme: const CardThemeData(
+          color: Colors.white,
+          elevation: 0,
+        ),
+        dialogTheme: const DialogThemeData(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
         ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6750A4),
+          seedColor: const Color(0xFF4F46E5),
           brightness: Brightness.dark,
+        ).copyWith(
+          primary: const Color(0xFF4F46E5),
+          secondary: const Color(0xFF06B6D4),
+          surface: const Color(0xFF111422), // column background
+          surfaceContainer: const Color(0xFF161A2B), // card background
+          surfaceContainerHighest: const Color(0xFF0E111E), // sidebar background
+          outlineVariant: const Color(0xFF20263C), // border lines
+        ),
+        scaffoldBackgroundColor: const Color(0xFF0A0C16),
+        cardTheme: const CardThemeData(
+          color: Color(0xFF161A2B),
+          elevation: 0,
+        ),
+        dialogTheme: const DialogThemeData(
+          backgroundColor: Color(0xFF111422),
+          surfaceTintColor: Colors.transparent,
         ),
       ),
       themeMode: themeProvider.themeMode,

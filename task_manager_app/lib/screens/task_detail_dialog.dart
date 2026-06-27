@@ -104,6 +104,7 @@ class TaskDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final taskProvider = context.watch<TaskProvider>();
     final groupProvider = context.watch<GroupProvider>();
 
@@ -121,22 +122,21 @@ class TaskDetailDialog extends StatelessWidget {
     final hasAttachments = task.attachments.isNotEmpty;
     final isAssigning = taskProvider.isAssigning;
 
-    // Get priority badge color
     Color priorityColor;
     Color priorityTextColor;
     switch (task.priority) {
       case 'high':
-        priorityColor = Colors.red.shade100;
-        priorityTextColor = Colors.red.shade900;
+        priorityColor = isDark ? const Color(0xFF3B1E1E) : const Color(0xFFFEE2E2);
+        priorityTextColor = isDark ? const Color(0xFFEF4444) : const Color(0xFFB91C1C);
         break;
       case 'medium':
-        priorityColor = Colors.amber.shade100;
-        priorityTextColor = Colors.amber.shade900;
+        priorityColor = isDark ? const Color(0xFF3D2E1A) : const Color(0xFFFEF3C7);
+        priorityTextColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309);
         break;
       case 'low':
       default:
-        priorityColor = Colors.blueGrey.shade100;
-        priorityTextColor = Colors.blueGrey.shade900;
+        priorityColor = isDark ? const Color(0xFF1E2235) : const Color(0xFFF1F5F9);
+        priorityTextColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
         break;
     }
 
@@ -180,6 +180,8 @@ class TaskDetailDialog extends StatelessWidget {
     }
 
     return Dialog(
+      backgroundColor: theme.colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500),
@@ -211,13 +213,13 @@ class TaskDetailDialog extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.secondaryContainer,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       task.status.replaceAll('_', ' ').toUpperCase(),
                       style: TextStyle(
-                        color: theme.colorScheme.onSecondaryContainer,
+                        color: theme.colorScheme.primary,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -253,16 +255,16 @@ class TaskDetailDialog extends StatelessWidget {
                 'Description',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: isDark ? Colors.white70 : Colors.black87,
                 ),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                  color: theme.colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: theme.colorScheme.outlineVariant.withAlpha(128)),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
                 ),
                 child: Text(
                   task.description != null && task.description!.isNotEmpty
@@ -278,16 +280,16 @@ class TaskDetailDialog extends StatelessWidget {
                 'Assigned To',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: isDark ? Colors.white70 : Colors.black87,
                 ),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.15),
+                  color: theme.colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: theme.colorScheme.outlineVariant.withAlpha(76)),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
                 ),
                 child: Row(
                   children: [
@@ -317,6 +319,7 @@ class TaskDetailDialog extends StatelessWidget {
                               child: DropdownButton<String?>(
                                 value: task.assignedTo,
                                 isExpanded: true,
+                                dropdownColor: isDark ? const Color(0xFF161A2B) : Colors.white,
                                 hint: const Text('Unassigned', style: TextStyle(fontSize: 14)),
                                 style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                                 items: [
@@ -348,23 +351,23 @@ class TaskDetailDialog extends StatelessWidget {
                 'Created By',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: isDark ? Colors.white70 : Colors.black87,
                 ),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.15),
+                  color: theme.colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: theme.colorScheme.outlineVariant.withAlpha(76)),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 16,
                       backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: theme.colorScheme.onPrimary,
+                      foregroundColor: Colors.white,
                       child: Text(
                         creatorInitials,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
@@ -399,7 +402,7 @@ class TaskDetailDialog extends StatelessWidget {
                 'Attachments (${task.attachments.length})',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: isDark ? Colors.white70 : Colors.black87,
                 ),
               ),
               const SizedBox(height: 8),
@@ -412,11 +415,11 @@ class TaskDetailDialog extends StatelessWidget {
                     final att = task.attachments[index];
                     return Card(
                       elevation: 0,
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.2),
+                      color: theme.colorScheme.surfaceContainer,
                       margin: const EdgeInsets.only(bottom: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.3)),
+                        side: BorderSide(color: theme.colorScheme.outlineVariant),
                       ),
                       child: ListTile(
                         dense: true,
@@ -441,9 +444,9 @@ class TaskDetailDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceVariant.withOpacity(0.15),
+                    color: theme.colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: theme.colorScheme.outlineVariant.withAlpha(76)),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
                   ),
                   child: const Text(
                     'No attachments',
@@ -475,8 +478,8 @@ class TaskDetailDialog extends StatelessWidget {
                           },
                           style: ElevatedButton.styleFrom(
                             elevation: 0,
-                            backgroundColor: theme.colorScheme.surfaceVariant,
-                            foregroundColor: theme.colorScheme.onSurfaceVariant,
+                            backgroundColor: theme.colorScheme.outlineVariant,
+                            foregroundColor: isDark ? Colors.white70 : Colors.black87,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           ),
                           child: Row(
@@ -498,7 +501,7 @@ class TaskDetailDialog extends StatelessWidget {
                           style: ElevatedButton.styleFrom(
                             elevation: 0,
                             backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: theme.colorScheme.onPrimary,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           ),
                           child: Row(
