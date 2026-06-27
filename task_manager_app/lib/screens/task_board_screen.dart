@@ -101,9 +101,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
   void _showTaskDetails(Task task) {
     showDialog(
       context: context,
-      builder: (context) => TaskDetailDialog(
-        taskId: task.id,
-      ),
+      builder: (context) => TaskDetailDialog(taskId: task.id),
     );
   }
 
@@ -131,7 +129,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
 
     final sidebarBg = theme.colorScheme.surfaceContainerHighest;
     final activeColor = theme.colorScheme.primary;
-    final textColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+    final textColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF475569);
     final activeTextColor = Colors.white;
 
     Widget buildNavItem({
@@ -185,7 +185,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
             child: Text(
               'TASKS',
               style: TextStyle(
-                color: isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8),
+                color: isDark
+                    ? const Color(0xFF475569)
+                    : const Color(0xFF94A3B8),
                 fontWeight: FontWeight.bold,
                 fontSize: 11,
                 letterSpacing: 1.5,
@@ -256,7 +258,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
   Widget _buildMainContent(BuildContext context, bool isMobile) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     final groupProvider = context.watch<GroupProvider>();
     final groups = groupProvider.groups;
     final activeGroup = groupProvider.activeGroup;
@@ -265,10 +267,13 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     final taskProvider = context.watch<TaskProvider>();
     final tasks = taskProvider.tasks;
     final isLoading = taskProvider.isLoading || isGroupLoading;
-    final errorMessage = taskProvider.errorMessage ?? groupProvider.errorMessage;
+    final errorMessage =
+        taskProvider.errorMessage ?? groupProvider.errorMessage;
 
-    final currentUserId = context.watch<AuthProvider>().currentUser?['id'] as String?;
-    final userName = context.watch<AuthProvider>().currentUser?['name'] ?? 'User';
+    final currentUserId =
+        context.watch<AuthProvider>().currentUser?['id'] as String?;
+    final userName =
+        context.watch<AuthProvider>().currentUser?['name'] ?? 'User';
     final initials = _getInitials(userName);
 
     Widget innerContent;
@@ -281,19 +286,23 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
           : tasks;
 
       final todoTasks = filteredTasks.where((t) => t.status == 'todo').toList();
-      final inProgressTasks = filteredTasks.where((t) => t.status == 'in_progress').toList();
+      final inProgressTasks = filteredTasks
+          .where((t) => t.status == 'in_progress')
+          .toList();
       final doneTasks = filteredTasks.where((t) => t.status == 'done').toList();
 
       if (isLoading) {
-        innerContent = const Center(
-          child: CircularProgressIndicator(),
-        );
+        innerContent = const Center(child: CircularProgressIndicator());
       } else if (errorMessage != null) {
         innerContent = Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline_rounded, size: 48, color: Colors.grey),
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: Colors.grey,
+              ),
               const SizedBox(height: 16),
               Text('Error: $errorMessage'),
               const SizedBox(height: 16),
@@ -317,7 +326,10 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 8.0,
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -363,7 +375,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                   TabBar(
                     controller: _tabController,
                     labelColor: theme.colorScheme.primary,
-                    unselectedLabelColor: isDark ? Colors.white60 : Colors.black54,
+                    unselectedLabelColor: isDark
+                        ? Colors.white60
+                        : Colors.black54,
                     indicatorColor: theme.colorScheme.primary,
                     indicatorSize: TabBarIndicatorSize.tab,
                     tabs: [
@@ -436,10 +450,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                     ),
                     const Text(
                       'Enterprise Edition',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -450,14 +461,16 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                   decoration: BoxDecoration(
                     color: isDark ? const Color(0xFF1E293B) : Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant,
-                    ),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<dynamic>(
-                      value: activeGroup != null && groups.any((g) => g['id'] == activeGroup['id'])
-                          ? groups.firstWhere((g) => g['id'] == activeGroup['id'])
+                      value:
+                          activeGroup != null &&
+                              groups.any((g) => g['id'] == activeGroup['id'])
+                          ? groups.firstWhere(
+                              (g) => g['id'] == activeGroup['id'],
+                            )
                           : null,
                       icon: const Icon(
                         Icons.keyboard_arrow_down_rounded,
@@ -468,14 +481,23 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
-                      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      dropdownColor: isDark
+                          ? const Color(0xFF1E293B)
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       hint: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.workspace_premium_rounded, size: 14, color: Colors.grey),
+                          Icon(
+                            Icons.workspace_premium_rounded,
+                            size: 14,
+                            color: Colors.grey,
+                          ),
                           SizedBox(width: 4),
-                          Text('Select Workspace', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          Text(
+                            'Select Workspace',
+                            style: TextStyle(color: Colors.grey, fontSize: 13),
+                          ),
                         ],
                       ),
                       items: groups.map<DropdownMenuItem<dynamic>>((g) {
@@ -508,7 +530,10 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                   icon: const Icon(Icons.add_rounded, size: 16),
                   label: const Text('New Task'),
@@ -539,35 +564,26 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                 Row(
                   children: [
                     Text(
-                      taskProvider.filterMode == 'my' ? 'My Tasks' : 'All Tasks',
+                      taskProvider.filterMode == 'my'
+                          ? 'My Tasks'
+                          : 'All Tasks',
                       style: TextStyle(
                         color: isDark ? Colors.white : const Color(0xFF0F172A),
                         fontWeight: FontWeight.bold,
                         fontSize: 24,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: Colors.grey,
-                      size: 20,
-                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   'Organize and track all tasks in one place.',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
                 ),
               ],
             ),
           ),
-        Expanded(
-          child: innerContent,
-        ),
+        Expanded(child: innerContent),
       ],
     );
   }
@@ -585,9 +601,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
               : Row(
                   children: [
                     _buildSidebar(context, false),
-                    Expanded(
-                      child: _buildMainContent(context, false),
-                    ),
+                    Expanded(child: _buildMainContent(context, false)),
                   ],
                 ),
         );
@@ -606,10 +620,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     }
   }
 
-  Widget _buildEmptyState({
-    required String status,
-    required bool isDark,
-  }) {
+  Widget _buildEmptyState({required String status, required bool isDark}) {
     IconData icon;
     String title;
     String subtitle;
@@ -641,20 +652,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          status == 'in_progress'
-              ? SizedBox(
-                  height: 36,
-                  width: 36,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(iconColor),
-                  ),
-                )
-              : Icon(
-                  icon,
-                  size: 40,
-                  color: iconColor,
-                ),
+          Icon(icon, size: 40, color: iconColor),
           const SizedBox(height: 12),
           Text(
             title,
@@ -668,10 +666,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Colors.grey,
-            ),
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ],
       ),
@@ -772,7 +767,11 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.more_horiz_rounded, size: 18, color: Colors.grey),
+                      icon: const Icon(
+                        Icons.more_horiz_rounded,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
                       onPressed: () {},
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -793,7 +792,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
               Padding(
                 padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
                 child: CustomDottedBorder(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                  color: isDark
+                      ? const Color(0xFF334155)
+                      : const Color(0xFFCBD5E1),
                   borderRadius: 8,
                   strokeWidth: 1.0,
                   gap: 4,
@@ -801,7 +802,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                   child: TextButton.icon(
                     onPressed: () => _showAddTaskForStatus(status),
                     style: TextButton.styleFrom(
-                      foregroundColor: isDark ? Colors.white70 : const Color(0xFF44546F),
+                      foregroundColor: isDark
+                          ? Colors.white70
+                          : const Color(0xFF44546F),
                       minimumSize: const Size(double.infinity, 40),
                       alignment: Alignment.center,
                       padding: const EdgeInsets.symmetric(
@@ -835,7 +838,8 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     final isDark = theme.brightness == Brightness.dark;
     if (tasks.isEmpty) {
       return DragTarget<Task>(
-        onWillAcceptWithDetails: (details) => details.data.status != columnStatus,
+        onWillAcceptWithDetails: (details) =>
+            details.data.status != columnStatus,
         onAcceptWithDetails: (details) {
           _updateStatus(details.data, columnStatus);
         },
@@ -914,17 +918,29 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     Color priorityTextColor;
     switch (task.priority) {
       case 'high':
-        priorityColor = isDark ? const Color(0xFF3B1E1E) : const Color(0xFFFEE2E2);
-        priorityTextColor = isDark ? const Color(0xFFEF4444) : const Color(0xFFB91C1C);
+        priorityColor = isDark
+            ? const Color(0xFF3B1E1E)
+            : const Color(0xFFFEE2E2);
+        priorityTextColor = isDark
+            ? const Color(0xFFEF4444)
+            : const Color(0xFFB91C1C);
         break;
       case 'medium':
-        priorityColor = isDark ? const Color(0xFF3D2E1A) : const Color(0xFFFEF3C7);
-        priorityTextColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309);
+        priorityColor = isDark
+            ? const Color(0xFF3D2E1A)
+            : const Color(0xFFFEF3C7);
+        priorityTextColor = isDark
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFFB45309);
         break;
       case 'low':
       default:
-        priorityColor = isDark ? const Color(0xFF1E2235) : const Color(0xFFF1F5F9);
-        priorityTextColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+        priorityColor = isDark
+            ? const Color(0xFF1E2235)
+            : const Color(0xFFF1F5F9);
+        priorityTextColor = isDark
+            ? const Color(0xFF94A3B8)
+            : const Color(0xFF475569);
         break;
     }
 
@@ -943,8 +959,18 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
     final creatorInitials = _getInitials(creatorName);
 
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final dateStr = '${months[task.createdAt.month - 1]} ${task.createdAt.day}';
 
@@ -953,10 +979,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant,
-          width: 1.0,
-        ),
+        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
@@ -1086,7 +1109,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: isDark ? Colors.grey.shade400 : const Color(0xFF44546F),
+                    color: isDark
+                        ? Colors.grey.shade400
+                        : const Color(0xFF44546F),
                     fontSize: 12,
                     height: 1.3,
                   ),
@@ -1115,10 +1140,7 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                 ),
               ],
               const SizedBox(height: 10),
-              Divider(
-                height: 1,
-                color: theme.colorScheme.outlineVariant,
-              ),
+              Divider(height: 1, color: theme.colorScheme.outlineVariant),
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1148,7 +1170,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                         message: 'Created by $creatorName',
                         child: CircleAvatar(
                           radius: 10,
-                          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.85),
+                          backgroundColor: theme.colorScheme.primary.withValues(
+                            alpha: 0.85,
+                          ),
                           child: Text(
                             creatorInitials,
                             style: const TextStyle(
@@ -1165,7 +1189,8 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                           message: 'Assigned to ${task.assigneeName ?? 'User'}',
                           child: CircleAvatar(
                             radius: 10,
-                            backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.85),
+                            backgroundColor: theme.colorScheme.secondary
+                                .withValues(alpha: 0.85),
                             child: Text(
                               _getInitials(task.assigneeName ?? 'User'),
                               style: const TextStyle(
@@ -1196,7 +1221,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.5),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1364,7 +1391,9 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                               Text(
                                 invite['groupDescription'] as String,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: isDark ? Colors.white70 : Colors.black54,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -1383,15 +1412,27 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                                 TextButton(
                                   onPressed: () async {
                                     try {
-                                      await context.read<GroupProvider>().declineInvite(invite['id'] as String);
+                                      await context
+                                          .read<GroupProvider>()
+                                          .declineInvite(
+                                            invite['id'] as String,
+                                          );
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Invitation declined')),
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Invitation declined',
+                                            ),
+                                          ),
                                         );
                                       }
                                     } catch (e) {
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(content: Text('Error: $e')),
                                         );
                                       }
@@ -1406,15 +1447,25 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                                 ElevatedButton(
                                   onPressed: () async {
                                     try {
-                                      await context.read<GroupProvider>().acceptInvite(invite['id'] as String);
+                                      await context
+                                          .read<GroupProvider>()
+                                          .acceptInvite(invite['id'] as String);
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Workspace joined successfully!')),
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Workspace joined successfully!',
+                                            ),
+                                          ),
                                         );
                                       }
                                     } catch (e) {
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(content: Text('Error: $e')),
                                         );
                                       }
@@ -1441,7 +1492,10 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.mark_email_read_outlined, color: Colors.white70),
+                      Icon(
+                        Icons.mark_email_read_outlined,
+                        color: Colors.white70,
+                      ),
                       SizedBox(width: 12),
                       Text(
                         'No pending invitations found',
@@ -1514,22 +1568,24 @@ class _TaskBoardScreenState extends State<TaskBoardScreen>
                       isSavingNotifier.value = true;
                       try {
                         await context.read<GroupProvider>().createGroup(
-                              name: nameController.text.trim(),
-                              description: descController.text.trim().isEmpty
-                                  ? null
-                                  : descController.text.trim(),
-                            );
+                          name: nameController.text.trim(),
+                          description: descController.text.trim().isEmpty
+                              ? null
+                              : descController.text.trim(),
+                        );
                         if (context.mounted) {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Workspace created successfully!')),
+                            const SnackBar(
+                              content: Text('Workspace created successfully!'),
+                            ),
                           );
                         }
                       } catch (e) {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
                         }
                       } finally {
                         isSavingNotifier.value = false;
