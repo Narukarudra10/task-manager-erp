@@ -648,15 +648,15 @@ class _SettingsContentState extends State<SettingsContent> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: isDark ? const Color(0xFF1E2235) : const Color(0xFFE2E8F0),
+                                      color: isDark ? const Color(0xFF2E344D) : const Color(0xFF1E293B),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       role.toUpperCase(),
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? Colors.white70 : Colors.black87,
+                                        color: Colors.white,
                                         letterSpacing: 0.5,
                                       ),
                                     ),
